@@ -1,0 +1,16 @@
+{
+	"compilerOptions": {
+		"downlevelIteration": true,
+		"esModuleInterop": true,
+		"moduleResolution": "node",
+		"noImplicitReturns": true,
+		"outDir": "./dist/",
+		"rootDir": "./lib/",
+		"sourceMap": true,
+		"strict": true,
+		"target": "ES6",
+	},
+	"include": [
+		"./lib/",
+	],
+}
