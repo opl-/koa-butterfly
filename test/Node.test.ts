@@ -145,6 +145,17 @@ describe('Node', () => {
 		assert.ok(childNode.isLeaf());
 	});
 
+	it('stringify()', () => {
+		const node = new Node(() => ({
+			toString() {
+				return 'node data';
+			}
+		}));
+		node.findOrCreateNode('/test');
+
+		assert.strictEqual(node.stringify(), '<root>: node data\n  /test: node data');
+	});
+
 	it('commonLength()', () => {
 		assert.strictEqual(Node.commonLength('', ''), 0);
 		assert.strictEqual(Node.commonLength('aa', 'aa'), 2);
