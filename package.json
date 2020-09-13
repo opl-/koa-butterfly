@@ -6,8 +6,9 @@
   "keywords": [
     "koa",
     "router",
-    "koa router",
-    "typescript"
+    "middleware",
+    "typescript",
+    "koa-router"
   ],
   "main": "dist/index.js",
   "scripts": {
