@@ -1,182 +1,171 @@
-import * as assert from 'assert';
-import 'mocha';
+import test from 'ava';
 
 import {Node} from '../lib/Node';
 
-describe('Node', () => {
-	it('should create and traverse trees', () => {
-		const root = new Node(() => null);
+test('should create and traverse trees', (t) => {
+	const root = new Node(() => null);
 
-		assert.strictEqual(root.children.length, 0);
+	t.is(root.children.length, 0);
 
-		let childNode = root.findOrCreateNode('/aa');
-		assert.ok(childNode !== null);
-		assert.ok(root.find('/aa') !== null);
-		assert.ok(childNode.isLeaf());
+	let childNode = root.findOrCreateNode('/aa');
+	t.not(childNode, null);
+	t.not(root.find('/aa'), null);
+	t.true(childNode.isLeaf());
 
-		childNode = root.findOrCreateNode('/ab');
-		assert.ok(childNode !== null);
-		assert.ok(root.find('/aa') !== null);
-		assert.ok(root.find('/ab') !== null);
-		assert.ok(childNode.isLeaf());
-		assert.strictEqual(childNode.segment, 'b');
+	childNode = root.findOrCreateNode('/ab');
+	t.not(childNode, null);
+	t.not(root.find('/aa'), null);
+	t.not(root.find('/ab'), null);
+	t.true(childNode.isLeaf());
+	t.is(childNode.segment, 'b');
 
-		childNode = root.findOrCreateNode('/c');
-		assert.ok(childNode !== null);
-		assert.ok(root.find('/aa') !== null);
-		assert.ok(root.find('/ab') !== null);
-		assert.ok(root.find('/c') !== null);
-	});
+	childNode = root.findOrCreateNode('/c');
+	t.not(childNode, null);
+	t.not(root.find('/aa'), null);
+	t.not(root.find('/ab'), null);
+	t.not(root.find('/c'), null);
+});
 
-	it('should work when adding longer paths', () => {
-		const root = new Node(() => null);
+test('should work when adding longer paths', (t) => {
+	const root = new Node(() => null);
 
-		let childNode = root.findOrCreateNode('/');
-		assert.ok(childNode !== null);
-		assert.ok(root.find('/') !== null);
+	let childNode = root.findOrCreateNode('/');
+	t.not(childNode, null);
+	t.not(root.find('/'), null);
 
-		childNode = root.findOrCreateNode('/a');
-		assert.ok(childNode !== null);
-		assert.ok(root.find('/') !== null);
-		assert.ok(root.find('/a') !== null);
-	});
+	childNode = root.findOrCreateNode('/a');
+	t.not(childNode, null);
+	t.not(root.find('/'), null);
+	t.not(root.find('/a'), null);
+});
 
-	it('should work when adding shorter paths', () => {
-		const root = new Node(() => null);
+test('should work when adding shorter paths', (t) => {
+	const root = new Node(() => null);
 
-		let childNode = root.findOrCreateNode('/a');
-		assert.ok(childNode !== null);
-		assert.ok(root.find('/a') !== null);
+	let childNode = root.findOrCreateNode('/a');
+	t.not(childNode, null);
+	t.not(root.find('/a'), null);
 
-		childNode = root.findOrCreateNode('/');
-		assert.ok(childNode !== null);
-		assert.ok(root.find('/') !== null);
-		assert.ok(root.find('/a') !== null);
-	});
+	childNode = root.findOrCreateNode('/');
+	t.not(childNode, null);
+	t.not(root.find('/'), null);
+	t.not(root.find('/a'), null);
+});
 
-	it('should create the data object for all child Nodes', () => {
-		const root = new Node(() => 1);
+test('should create the data object for all child Nodes', (t) => {
+	const root = new Node(() => 1);
 
-		function checkData(node: Node<number>) {
-			[...node].forEach((child) => assert.strictEqual(child.data, 1));
+	function checkData(node: Node<number>) {
+		[...node].forEach((child) => t.is(child.data, 1));
+	}
+
+	root.findOrCreateNode('/');
+	checkData(root);
+
+	root.findOrCreateNode('/a');
+	checkData(root);
+
+	root.findOrCreateNode('/b');
+	checkData(root);
+
+	root.findOrCreateNode('/ab');
+	checkData(root);
+});
+
+test('should have no Nodes with an empty segment', (t) => {
+	const root = new Node(() => null);
+
+	function checkData(node: Node<any>) {
+		[...node].forEach((child) => t.not(child.segment, ''));
+	}
+
+	root.findOrCreateNode('/');
+	checkData(root);
+
+	root.findOrCreateNode('/a');
+	checkData(root);
+
+	root.findOrCreateNode('/b');
+	checkData(root);
+
+	root.findOrCreateNode('/ab');
+	checkData(root);
+});
+
+test('should allow root nodes to use custom names', (t) => {
+	const root = new Node(() => null, 'The Root');
+
+	const child = root.findOrCreateNode('/');
+
+	t.is(root.find(''), root);
+	t.is(root.find('/'), child);
+	t.is(root.segment, 'The Root');
+
+	const defaultRoot = new Node(() => null);
+	t.is(defaultRoot.segment, '<root>');
+});
+
+test('find() should return the correct nodes', (t) => {
+	const root = new Node(() => null);
+
+	const slash = root.findOrCreateNode('/');
+	const a = root.findOrCreateNode('/a');
+	const b = root.findOrCreateNode('/b');
+
+	t.is(root.find('/'), slash);
+	t.is(root.find('/a'), a);
+	t.is(root.find('/b'), b);
+	t.is(root.find('/c'), null);
+});
+
+test('find(\'\') should return the root Node', (t) => {
+	const node = new Node(() => null);
+
+	const foundNode = node.find('');
+	t.is(foundNode, node);
+});
+
+test('findAll() should return the correct nodes', (t) => {
+	const root = new Node(() => null);
+
+	const slash = root.findOrCreateNode('/');
+	const a = root.findOrCreateNode('/a');
+	const b = root.findOrCreateNode('/b');
+
+	t.deepEqual(root.findAll(''), [root]);
+	t.deepEqual(root.findAll('/'), [root, slash]);
+	t.deepEqual(root.findAll('/a'), [root, slash, a]);
+	t.deepEqual(root.findAll('/b'), [root, slash, b]);
+	t.is(root.findAll('/c'), null);
+});
+
+test('isLeaf()', (t) => {
+	const node = new Node(() => null);
+
+	t.true(node.isLeaf());
+	const childNode = node.findOrCreateNode('/a');
+	t.false(node.isLeaf());
+	t.true(childNode.isLeaf());
+});
+
+test('stringify()', (t) => {
+	const node = new Node(() => ({
+		toString() {
+			return 'node data';
 		}
+	}));
+	node.findOrCreateNode('/test');
 
-		root.findOrCreateNode('/');
-		checkData(root);
+	t.is(node.stringify(), '<root>: node data\n  /test: node data');
+});
 
-		root.findOrCreateNode('/a');
-		checkData(root);
-
-		root.findOrCreateNode('/b');
-		checkData(root);
-
-		root.findOrCreateNode('/ab');
-		checkData(root);
-	});
-
-	it('should have no Nodes with an empty segment', () => {
-		const root = new Node(() => null);
-
-		function checkData(node: Node<any>) {
-			[...node].forEach((child) => assert.notStrictEqual(child.segment, ''));
-		}
-
-		root.findOrCreateNode('/');
-		checkData(root);
-
-		root.findOrCreateNode('/a');
-		checkData(root);
-
-		root.findOrCreateNode('/b');
-		checkData(root);
-
-		root.findOrCreateNode('/ab');
-		checkData(root);
-	});
-
-	it('should allow root nodes to use custom names', () => {
-		const root = new Node(() => null, 'The Root');
-
-		const child = root.findOrCreateNode('/');
-
-		assert.strictEqual(root, root.find(''));
-		assert.strictEqual(child, root.find('/'));
-		assert.strictEqual(root.segment, 'The Root');
-
-		const defaultRoot = new Node(() => null);
-		assert.strictEqual(defaultRoot.segment, '<root>');
-	});
-
-	it('find() should return the correct nodes', () => {
-		const root = new Node(() => null);
-
-		const slash = root.findOrCreateNode('/');
-		const a = root.findOrCreateNode('/a');
-		const b = root.findOrCreateNode('/b');
-
-		assert.strictEqual(root.find('/'), slash);
-		assert.strictEqual(root.find('/a'), a);
-		assert.strictEqual(root.find('/b'), b);
-		assert.strictEqual(root.find('/c'), null);
-	});
-
-	it('find(\'\') should return the root Node', () => {
-		const node = new Node(() => null);
-
-		const foundNode = node.find('');
-		assert.ok(node === foundNode);
-	});
-
-	it('findAll() should return the correct nodes', () => {
-		const root = new Node(() => null);
-
-		function assertContentsEqual(actual: any, expected: any[]) {
-			assert.ok(Array.isArray(actual), 'value is not an array');
-			assert.strictEqual(actual.length, expected.length, 'array lengths do not match');
-			actual.forEach((entry, index) => {
-				assert.strictEqual(entry, expected[index], `entries are not equal (index=${index})`);
-			});
-		}
-
-		const slash = root.findOrCreateNode('/');
-		const a = root.findOrCreateNode('/a');
-		const b = root.findOrCreateNode('/b');
-
-		assertContentsEqual(root.findAll(''), [root]);
-		assertContentsEqual(root.findAll('/'), [root, slash]);
-		assertContentsEqual(root.findAll('/a'), [root, slash, a]);
-		assertContentsEqual(root.findAll('/b'), [root, slash, b]);
-		assert.strictEqual(root.findAll('/c'), null);
-	});
-
-	it('isLeaf()', () => {
-		const node = new Node(() => null);
-
-		assert.ok(node.isLeaf());
-		const childNode = node.findOrCreateNode('/a');
-		assert.ok(!node.isLeaf());
-		assert.ok(childNode.isLeaf());
-	});
-
-	it('stringify()', () => {
-		const node = new Node(() => ({
-			toString() {
-				return 'node data';
-			}
-		}));
-		node.findOrCreateNode('/test');
-
-		assert.strictEqual(node.stringify(), '<root>: node data\n  /test: node data');
-	});
-
-	it('commonLength()', () => {
-		assert.strictEqual(Node.commonLength('', ''), 0);
-		assert.strictEqual(Node.commonLength('aa', 'aa'), 2);
-		assert.strictEqual(Node.commonLength('aaa', 'aa'), 2);
-		assert.strictEqual(Node.commonLength('aa', 'aaa'), 2);
-		assert.strictEqual(Node.commonLength('ba', 'aaa'), 0);
-		assert.strictEqual(Node.commonLength('baa', 'aa'), 0);
-		assert.strictEqual(Node.commonLength('baa', 'bba'), 1);
-		assert.strictEqual(Node.commonLength('bba', 'bba'), 3);
-	});
+test('commonLength()', (t) => {
+	t.is(Node.commonLength('', ''), 0);
+	t.is(Node.commonLength('aa', 'aa'), 2);
+	t.is(Node.commonLength('aaa', 'aa'), 2);
+	t.is(Node.commonLength('aa', 'aaa'), 2);
+	t.is(Node.commonLength('ba', 'aaa'), 0);
+	t.is(Node.commonLength('baa', 'aa'), 0);
+	t.is(Node.commonLength('baa', 'bba'), 1);
+	t.is(Node.commonLength('bba', 'bba'), 3);
 });
