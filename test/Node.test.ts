@@ -94,6 +94,19 @@ describe('Node', () => {
 		checkData(root);
 	});
 
+	it('should allow root nodes to use custom names', () => {
+		const root = new Node(() => null, 'The Root');
+
+		const child = root.findOrCreateNode('/');
+
+		assert.strictEqual(root, root.find(''));
+		assert.strictEqual(child, root.find('/'));
+		assert.strictEqual(root.segment, 'The Root');
+
+		const defaultRoot = new Node(() => null);
+		assert.strictEqual(defaultRoot.segment, '<root>');
+	});
+
 	it('find() should return the correct nodes', () => {
 		const root = new Node(() => null);
 
