@@ -3,60 +3,65 @@ import compose from 'koa-compose';
 
 import {Node} from './Node';
 
+export enum SpecialMethod {
+	/** For middleware that gets executed for every path segment. */
+	MIDDLEWARE = 'middleware',
+	/** For middleware that gets executed only for the specific path it was assigned to. */
+	MIDDLEWARE_EXACT = 'middlewareExact',
+	/** For middleware that matches for any request method. More specific methods will be called before these. */
+	ANY = 'any',
+}
+
 export class RouterNodeData {
-	middleware: Map<number, Middleware[]> = new Map();
-	orderedMiddleware: Middleware[] = [];
+	middleware: Map<string, Map<number, Middleware[]>> = new Map();
+	orderedMiddleware: Map<string, Middleware[]> = new Map();
 
-	endpoints: Map<string, Middleware[]> = new Map();
+	getMiddlewareStage(method: string, stage: number): Middleware[] {
+		let methodStages = this.middleware.get(method);
 
-	getMiddlewareStage(stage: number): Middleware[] {
-		const array = this.middleware.get(stage);
-		if (array) return array;
+		if (!methodStages) {
+			methodStages = new Map();
+			this.middleware.set(method, methodStages);
+		}
 
-		const newArray: Middleware[] = [];
-		this.middleware.set(stage, newArray);
-		return newArray;
+		let stageArray = methodStages.get(stage);
+		if (stageArray) return stageArray;
+
+		stageArray = [];
+		methodStages.set(stage, stageArray);
+		return stageArray;
 	}
 
-	addMiddleware(stage: number, ...middleware: Middleware[]): void {
-		const stageArray = this.getMiddlewareStage(stage);
+	addMiddleware(method: string, stage: number, ...middleware: Middleware[]): void {
+		const stageArray = this.getMiddlewareStage(method, stage);
 
 		stageArray.push(...middleware);
 
-		this.orderMiddlewares();
+		this.orderMiddleware(method);
 	}
 
-	orderMiddlewares(): void {
-		this.orderedMiddleware = [...this.middleware.keys()].sort().reduce((acc, key) => {
-			acc.push(...this.getMiddlewareStage(key));
+	orderMiddleware(method: string): void {
+		const methodStages = this.middleware.get(method);
+
+		// The method doesn't have any middleware registered - do nothing
+		if (!methodStages) return;
+
+		// Flatten middleware arrays of all the stages into a single array
+		const orderedMiddleware = [...methodStages.keys()].sort().reduce((acc, key) => {
+			acc.push(...methodStages.get(key)!);
 			return acc;
 		}, [] as Middleware[]);
-	}
 
-	// FIXME: use positive stages for endpoints and negative for middleware instead of having them split up?
-	getEndpointMethod(method: string): Middleware[] {
-		const normalizedMethod = method.toUpperCase();
-
-		const array = this.endpoints.get(normalizedMethod);
-		if (array) return array;
-
-		const newArray: Middleware[] = [];
-		this.endpoints.set(normalizedMethod, newArray);
-		return newArray;
-	}
-
-	addEndpoint(method: string, ...middleware: Middleware[]): void {
-		const methodArray = this.getEndpointMethod(method);
-
-		methodArray.push(...middleware);
+		this.orderedMiddleware.set(method, orderedMiddleware);
 	}
 
 	toString(): string {
-		return `${this.middleware.size} stages, ${this.orderedMiddleware.length} ordered middlewares, ${this.endpoints.size} methods`;
+		return `${this.middleware.size} stages, ${[...this.orderedMiddleware].map(([method, middleware]) => `${method} (${middleware.length})`).join(',')} methods`;
 	}
 }
 
 export interface RouterOptions {
+	/** If true, requests ending with `/` will match routes not ending in `/`. Routes ending with `/` will still require the request path to end in a slash. */
 	strictSlashes?: boolean;
 }
 
@@ -79,24 +84,12 @@ export class Router {
 		return path;
 	}
 
-	addMiddleware(path: string, stage: number, ...middleware: Middleware[]): void {
+	addMiddleware(path: string, method: string, stage: number, ...middleware: Middleware[]): void {
 		if (path.length < 0 || path[0] !== '/') throw new Error('Paths must start with "/"');
-
-		path = this.normalizePath(path);
 
 		const node = this.rootNode.findOrCreateNode(path);
 
-		node.data.addMiddleware(stage, ...middleware);
-	}
-
-	addEndpoint(path: string, method: string, ...middleware: Middleware[]): void {
-		if (path.length < 0 || path[0] !== '/') throw new Error('Paths must start with "/"');
-
-		path = this.normalizePath(path);
-
-		const node = this.rootNode.findOrCreateNode(path);
-
-		node.data.addEndpoint(method, ...middleware);
+		node.data.addMiddleware(method, stage, ...middleware);
 	}
 
 	middleware(): Middleware {
@@ -109,8 +102,7 @@ export class Router {
 		const nodes = this.rootNode.findAll(path);
 		if (!nodes) return next();
 
-		console.log(ctx.method, ctx.path);
-
+		// TODO: cache if no params
 		const matchingMiddleware = nodes
 			.filter((node, index, arr) => {
 				// Always leave in the root and last Node
@@ -120,9 +112,11 @@ export class Router {
 				// Don't allow any other nodes
 				return false;
 			})
-			.map((node) => node.data.orderedMiddleware)
+			.map((node) => node.data.orderedMiddleware.get(SpecialMethod.MIDDLEWARE) || [])
 			.reduce((acc, arr) => acc.concat(arr))
-			.concat(nodes[nodes.length - 1].data.getEndpointMethod(ctx.method));
+			.concat(nodes[nodes.length - 1].data.orderedMiddleware.get(SpecialMethod.MIDDLEWARE_EXACT) || [])
+			.concat(nodes[nodes.length - 1].data.orderedMiddleware.get(ctx.method) || [])
+			.concat(nodes[nodes.length - 1].data.orderedMiddleware.get(SpecialMethod.ANY) || []);
 
 		return compose(matchingMiddleware)(ctx, next);
 	}
