@@ -110,7 +110,7 @@ export class Node<D> {
 
 		// The newly created branch node is the last part of the path
 		if (remainingPath.length <= commonSegment.length) return output;
-		
+
 		// There's still some path remaining. Create a node for the remaining part and return it.
 		const newNode = new Node(this.dataCreator, remainingPath.substr(bestCommonLength));
 		branchNode.children.push(newNode);
