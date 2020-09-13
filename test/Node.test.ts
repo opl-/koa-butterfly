@@ -93,14 +93,47 @@ describe('Node', () => {
 		root.findOrCreateNode('/ab');
 		checkData(root);
 	});
-	// TODO: findAll
-	// TODO: find
+
+	it('find() should return the correct nodes', () => {
+		const root = new Node(() => null);
+
+		const slash = root.findOrCreateNode('/');
+		const a = root.findOrCreateNode('/a');
+		const b = root.findOrCreateNode('/b');
+
+		assert.strictEqual(root.find('/'), slash);
+		assert.strictEqual(root.find('/a'), a);
+		assert.strictEqual(root.find('/b'), b);
+		assert.strictEqual(root.find('/c'), null);
+	});
 
 	it('find(\'\') should return the root Node', () => {
 		const node = new Node(() => null);
 
 		const foundNode = node.find('');
 		assert.ok(node === foundNode);
+	});
+
+	it('findAll() should return the correct nodes', () => {
+		const root = new Node(() => null);
+
+		function assertContentsEqual(actual: any, expected: any[]) {
+			assert.ok(Array.isArray(actual), 'value is not an array');
+			assert.strictEqual(actual.length, expected.length, 'array lengths do not match');
+			actual.forEach((entry, index) => {
+				assert.strictEqual(entry, expected[index], `entries are not equal (index=${index})`);
+			});
+		}
+
+		const slash = root.findOrCreateNode('/');
+		const a = root.findOrCreateNode('/a');
+		const b = root.findOrCreateNode('/b');
+
+		assertContentsEqual(root.findAll(''), [root]);
+		assertContentsEqual(root.findAll('/'), [root, slash]);
+		assertContentsEqual(root.findAll('/a'), [root, slash, a]);
+		assertContentsEqual(root.findAll('/b'), [root, slash, b]);
+		assert.strictEqual(root.findAll('/c'), null);
 	});
 
 	it('isLeaf()', () => {
