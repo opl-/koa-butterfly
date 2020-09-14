@@ -8,8 +8,8 @@ export enum SpecialMethod {
 	MIDDLEWARE = 'middleware',
 	/** For middleware that gets executed only for the specific path it was assigned to. */
 	MIDDLEWARE_EXACT = 'middlewareExact',
-	/** For middleware that matches for any request method. More specific methods will be called before these. */
-	ANY = 'any',
+	/** For middleware that matches for any request method. More specific methods will be called before ones bound to `all`. */
+	ALL = 'all',
 }
 
 export class RouterNodeData<StateT = DefaultState, ContextT = DefaultContext> {
@@ -116,7 +116,7 @@ export class Router<StateT = DefaultState, ContextT = DefaultContext> {
 			.reduce((acc, arr) => acc.concat(arr))
 			.concat(nodes[nodes.length - 1].data.orderedMiddleware.get(SpecialMethod.MIDDLEWARE_EXACT) || [])
 			.concat(nodes[nodes.length - 1].data.orderedMiddleware.get(ctx.method) || [])
-			.concat(nodes[nodes.length - 1].data.orderedMiddleware.get(SpecialMethod.ANY) || []);
+			.concat(nodes[nodes.length - 1].data.orderedMiddleware.get(SpecialMethod.ALL) || []);
 
 		return compose(matchingMiddleware)(ctx, next);
 	}

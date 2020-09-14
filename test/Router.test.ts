@@ -89,7 +89,7 @@ test.serial('routes through special methods in order', async (t) => {
 	router.addMiddleware(SpecialMethod.MIDDLEWARE, '/', 0, append('MIDDLEWARE 0 /'));
 	router.addMiddleware(SpecialMethod.MIDDLEWARE_EXACT, '/', 0, append('MIDDLEWARE_EXACT 0 /'));
 	router.addMiddleware('GET', '/', 0, append('GET 0 /'));
-	router.addMiddleware(SpecialMethod.ANY, '/', 0, append('ANY 0 /'));
+	router.addMiddleware(SpecialMethod.ALL, '/', 0, append('ANY 0 /'));
 
 	t.is(await simulate('GET', '/', false), 'MIDDLEWARE 0 /:MIDDLEWARE_EXACT 0 /:GET 0 /:ANY 0 /');
 });
