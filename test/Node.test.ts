@@ -52,6 +52,18 @@ test('should work when adding shorter paths', (t) => {
 	t.not(root.find('/a'), null);
 });
 
+test('should work when branching with more segments left', (t) => {
+	const root = new Node(() => null);
+
+	const ab = root.findOrCreateNode('/ab');
+	const slash = root.findOrCreateNode('/');
+	const ac = root.findOrCreateNode('/ac');
+
+	t.is(root.find('/ab'), ab);
+	t.is(root.find('/'), slash);
+	t.is(root.find('/ac'), ac);
+});
+
 test('should create the data object for all child Nodes', (t) => {
 	const root = new Node(() => 1);
 
