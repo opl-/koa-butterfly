@@ -77,12 +77,9 @@ export class Node<D> {
 			const commonLength = Node.commonLength(remainingPath, child.segment);
 
 			if (commonLength > 0) {
-				if (!bestNode) {
-					bestCommonLength = commonLength;
-					bestNode = child;
-				} else {
-					throw new Error('two nodes with matching prefix!');
-				}
+				bestCommonLength = commonLength;
+				bestNode = child;
+				break;
 			}
 		}
 
