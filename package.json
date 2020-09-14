@@ -13,7 +13,7 @@
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc",
-    "test": "nyc ava"
+    "test": "nyc --report=lcov ava"
   },
   "author": "opl",
   "license": "MIT",
