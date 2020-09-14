@@ -120,4 +120,86 @@ export class Router<StateT = DefaultState, ContextT = DefaultContext> {
 
 		return compose(matchingMiddleware)(ctx, next);
 	}
+
+	private addMiddlewareHelper(method: string, path: string, stage: number | Middleware<StateT, ContextT>, ...middleware: Middleware<StateT, ContextT>[]): this {
+		const combinedMiddleware = typeof stage === 'number' ? middleware : [stage].concat(middleware);
+		const decidedStage = typeof stage === 'number' ? stage : 0;
+
+		if (combinedMiddleware.length === 0) throw new Error('No middleware provided');
+
+		if (combinedMiddleware.length > 1) this.addMiddleware(SpecialMethod.MIDDLEWARE_EXACT, path, decidedStage, ...combinedMiddleware.slice(0, combinedMiddleware.length - 1));
+		this.addMiddleware(method, path, decidedStage, combinedMiddleware[combinedMiddleware.length - 1]);
+
+		return this;
+	}
+
+	use(path: string, ...middleware: Middleware<StateT, ContextT>[]): this;
+	use(path: string, stage: number, ...middleware: Middleware<StateT, ContextT>[]): this;
+	use(path: string, stage: number | Middleware<StateT, ContextT>, ...middleware: Middleware<StateT, ContextT>[]): this {
+		if (path.endsWith('*')) {
+			return this.addMiddlewareHelper(SpecialMethod.MIDDLEWARE, path.substr(0, path.length - 1), stage, ...middleware);
+		}
+
+		return this.addMiddlewareHelper(SpecialMethod.MIDDLEWARE_EXACT, path, stage, ...middleware);
+	}
+
+	connect(path: string, ...middleware: Middleware<StateT, ContextT>[]): this;
+	connect(path: string, stage: number, ...middleware: Middleware<StateT, ContextT>[]): this;
+	connect(path: string, stage: number | Middleware<StateT, ContextT>, ...middleware: Middleware<StateT, ContextT>[]): this {
+		return this.addMiddlewareHelper('CONNECT', path, stage, ...middleware);
+	}
+
+	delete(path: string, ...middleware: Middleware<StateT, ContextT>[]): this;
+	delete(path: string, stage: number, ...middleware: Middleware<StateT, ContextT>[]): this;
+	delete(path: string, stage: number | Middleware<StateT, ContextT>, ...middleware: Middleware<StateT, ContextT>[]): this {
+		return this.addMiddlewareHelper('DELETE', path, stage, ...middleware);
+	}
+
+	del(path: string, ...middleware: Middleware<StateT, ContextT>[]): this;
+	del(path: string, stage: number, ...middleware: Middleware<StateT, ContextT>[]): this;
+	del(path: string, stage: number | Middleware<StateT, ContextT>, ...middleware: Middleware<StateT, ContextT>[]): this {
+		return this.addMiddlewareHelper('DELETE', path, stage, ...middleware);
+	}
+
+	get(path: string, ...middleware: Middleware<StateT, ContextT>[]): this;
+	get(path: string, stage: number, ...middleware: Middleware<StateT, ContextT>[]): this;
+	get(path: string, stage: number | Middleware<StateT, ContextT>, ...middleware: Middleware<StateT, ContextT>[]): this {
+		return this.addMiddlewareHelper('GET', path, stage, ...middleware);
+	}
+
+	head(path: string, ...middleware: Middleware<StateT, ContextT>[]): this;
+	head(path: string, stage: number, ...middleware: Middleware<StateT, ContextT>[]): this;
+	head(path: string, stage: number | Middleware<StateT, ContextT>, ...middleware: Middleware<StateT, ContextT>[]): this {
+		return this.addMiddlewareHelper('HEAD', path, stage, ...middleware);
+	}
+
+	options(path: string, ...middleware: Middleware<StateT, ContextT>[]): this;
+	options(path: string, stage: number, ...middleware: Middleware<StateT, ContextT>[]): this;
+	options(path: string, stage: number | Middleware<StateT, ContextT>, ...middleware: Middleware<StateT, ContextT>[]): this {
+		return this.addMiddlewareHelper('OPTIONS', path, stage, ...middleware);
+	}
+
+	patch(path: string, ...middleware: Middleware<StateT, ContextT>[]): this;
+	patch(path: string, stage: number, ...middleware: Middleware<StateT, ContextT>[]): this;
+	patch(path: string, stage: number | Middleware<StateT, ContextT>, ...middleware: Middleware<StateT, ContextT>[]): this {
+		return this.addMiddlewareHelper('PATCH', path, stage, ...middleware);
+	}
+
+	post(path: string, ...middleware: Middleware<StateT, ContextT>[]): this;
+	post(path: string, stage: number, ...middleware: Middleware<StateT, ContextT>[]): this;
+	post(path: string, stage: number | Middleware<StateT, ContextT>, ...middleware: Middleware<StateT, ContextT>[]): this {
+		return this.addMiddlewareHelper('POST', path, stage, ...middleware);
+	}
+
+	put(path: string, ...middleware: Middleware<StateT, ContextT>[]): this;
+	put(path: string, stage: number, ...middleware: Middleware<StateT, ContextT>[]): this;
+	put(path: string, stage: number | Middleware<StateT, ContextT>, ...middleware: Middleware<StateT, ContextT>[]): this {
+		return this.addMiddlewareHelper('PUT', path, stage, ...middleware);
+	}
+
+	trace(path: string, ...middleware: Middleware<StateT, ContextT>[]): this;
+	trace(path: string, stage: number, ...middleware: Middleware<StateT, ContextT>[]): this;
+	trace(path: string, stage: number | Middleware<StateT, ContextT>, ...middleware: Middleware<StateT, ContextT>[]): this {
+		return this.addMiddlewareHelper('TRACE', path, stage, ...middleware);
+	}
 }

@@ -5,7 +5,9 @@ import {Router, SpecialMethod} from '../lib/Router';
 
 let router = new Router();
 
-async function simulate(method: 'GET' | 'HEAD' | 'POST', path: string, shouldMatch = true): Promise<string | undefined> {
+type MethodsWithHelpers = 'CONNECT' | 'DELETE' | 'GET' | 'HEAD' | 'OPTIONS' | 'PATCH' | 'POST' | 'PUT' | 'TRACE';
+
+async function simulate(method: MethodsWithHelpers, path: string, shouldMatch = true): Promise<string | undefined> {
 	const context = {
 		path,
 		method,
@@ -90,6 +92,49 @@ test.serial('routes through special methods in order', async (t) => {
 	router.addMiddleware(SpecialMethod.ANY, '/', 0, append('ANY 0 /'));
 
 	t.is(await simulate('GET', '/', false), 'MIDDLEWARE 0 /:MIDDLEWARE_EXACT 0 /:GET 0 /:ANY 0 /');
+});
+
+test.serial('method helpers should add middleware', async (t) => {
+	router.connect('/', append('CONNECT 0 /', true));
+	router.delete('/', append('DELETE 0 /', true));
+	router.del('/alias/del', append('DEL 0 /', true));
+	router.get('/', append('GET 0 /', true));
+	router.head('/', append('HEAD 0 /', true));
+	router.options('/', append('OPTIONS 0 /', true));
+	router.patch('/', append('PATCH 0 /', true));
+	router.post('/', append('POST 0 /', true));
+	router.put('/', append('PUT 0 /', true));
+	router.trace('/', append('TRACE 0 /', true));
+
+	t.is(await simulate('CONNECT', '/'), 'CONNECT 0 /');
+	t.is(await simulate('DELETE', '/'), 'DELETE 0 /');
+	t.is(await simulate('DELETE', '/alias/del'), 'DEL 0 /');
+	t.is(await simulate('GET', '/'), 'GET 0 /');
+	t.is(await simulate('HEAD', '/'), 'HEAD 0 /');
+	t.is(await simulate('OPTIONS', '/'), 'OPTIONS 0 /');
+	t.is(await simulate('PATCH', '/'), 'PATCH 0 /');
+	t.is(await simulate('POST', '/'), 'POST 0 /');
+	t.is(await simulate('PUT', '/'), 'PUT 0 /');
+	t.is(await simulate('TRACE', '/'), 'TRACE 0 /');
+});
+
+test.serial('method helpers should add middleware with correct stages', async (t) => {
+	router.get('/', append('MIDDLEWARE_EXACT 0 /'), append('GET 0 /', true));
+	router.use('/*', -5, append('MIDDLEWARE -5 /*'));
+	router.use('/*', 5, append('MIDDLEWARE 5 /*'));
+
+	// TODO: should middleware and exact middleware stages be ordered together? i feel like they should be ordered together...
+	t.is(await simulate('GET', '/'), 'MIDDLEWARE -5 /*:MIDDLEWARE 5 /*:MIDDLEWARE_EXACT 0 /:GET 0 /');
+});
+
+test.serial('use() should add middleware and handle the wildcard', async (t) => {
+	router.use('/', append('USE 0 /'));
+	router.use('/*', append('USE 0 /*'));
+	router.get('/', append('GET 0 /', true));
+	router.get('/test', append('GET 0 /test', true));
+
+	t.is(await simulate('GET', '/'), 'USE 0 /*:USE 0 /:GET 0 /');
+	t.is(await simulate('GET', '/test'), 'USE 0 /*:GET 0 /test');
 });
 
 test('supports custom context and state types', async (t) => {
