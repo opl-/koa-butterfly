@@ -7,49 +7,54 @@ test('should create and traverse trees', (t) => {
 
 	t.is(root.children.length, 0);
 
-	let childNode = root.findOrCreateNode('/aa');
-	t.not(childNode, null);
-	t.not(root.find('/aa'), null);
-	t.true(childNode.isLeaf());
+	const aa = root.findOrCreateNode('/aa');
+	t.not(aa, null);
+	t.is(root.find('/aa'), aa);
+	t.true(aa.isLeaf());
+	t.is(aa.segment, '/aa');
 
-	childNode = root.findOrCreateNode('/ab');
-	t.not(childNode, null);
-	t.not(root.find('/aa'), null);
-	t.not(root.find('/ab'), null);
-	t.true(childNode.isLeaf());
-	t.is(childNode.segment, 'b');
+	const ab = root.findOrCreateNode('/ab');
+	t.not(ab, null);
+	t.is(root.find('/aa'), aa);
+	t.is(root.find('/ab'), ab);
+	t.true(aa.isLeaf());
+	t.true(ab.isLeaf());
+	t.not(root.find('/a'), null);
+	t.is(root.find('/a')?.segment, '/a');
+	t.is(aa.segment, 'a');
+	t.is(ab.segment, 'b');
 
-	childNode = root.findOrCreateNode('/c');
-	t.not(childNode, null);
-	t.not(root.find('/aa'), null);
-	t.not(root.find('/ab'), null);
-	t.not(root.find('/c'), null);
+	const c = root.findOrCreateNode('/c');
+	t.not(c, null);
+	t.is(root.find('/aa'), aa);
+	t.is(root.find('/ab'), ab);
+	t.is(root.find('/c'), c);
 });
 
 test('should work when adding longer paths', (t) => {
 	const root = new Node(() => null);
 
-	let childNode = root.findOrCreateNode('/');
-	t.not(childNode, null);
-	t.not(root.find('/'), null);
+	const slash = root.findOrCreateNode('/');
+	t.not(slash, null);
+	t.is(root.find('/'), slash);
 
-	childNode = root.findOrCreateNode('/a');
-	t.not(childNode, null);
-	t.not(root.find('/'), null);
-	t.not(root.find('/a'), null);
+	const a = root.findOrCreateNode('/a');
+	t.not(a, null);
+	t.is(root.find('/'), slash);
+	t.is(root.find('/a'), a);
 });
 
 test('should work when adding shorter paths', (t) => {
 	const root = new Node(() => null);
 
-	let childNode = root.findOrCreateNode('/a');
-	t.not(childNode, null);
-	t.not(root.find('/a'), null);
+	const a = root.findOrCreateNode('/a');
+	t.not(a, null);
+	t.is(root.find('/a'), a);
 
-	childNode = root.findOrCreateNode('/');
-	t.not(childNode, null);
-	t.not(root.find('/'), null);
-	t.not(root.find('/a'), null);
+	const slash = root.findOrCreateNode('/');
+	t.not(slash, null);
+	t.is(root.find('/'), slash);
+	t.is(root.find('/a'), a);
 });
 
 test('should work when branching with more segments left', (t) => {
