@@ -143,6 +143,12 @@ export class Router<StateT = DefaultState, ContextT = DefaultContext> {
 		return this.addMiddlewareHelper(SpecialMethod.MIDDLEWARE_EXACT, path, stage, ...middleware);
 	}
 
+	all(path: string, ...middleware: Middleware<StateT, ContextT>[]): this;
+	all(path: string, stage: number, ...middleware: Middleware<StateT, ContextT>[]): this;
+	all(path: string, stage: number | Middleware<StateT, ContextT>, ...middleware: Middleware<StateT, ContextT>[]): this {
+		return this.addMiddlewareHelper(SpecialMethod.ALL, path, stage, ...middleware);
+	}
+
 	connect(path: string, ...middleware: Middleware<StateT, ContextT>[]): this;
 	connect(path: string, stage: number, ...middleware: Middleware<StateT, ContextT>[]): this;
 	connect(path: string, stage: number | Middleware<StateT, ContextT>, ...middleware: Middleware<StateT, ContextT>[]): this {

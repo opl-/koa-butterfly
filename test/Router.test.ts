@@ -95,6 +95,7 @@ test.serial('routes through special methods in order', async (t) => {
 });
 
 test.serial('method helpers should add middleware', async (t) => {
+	router.all('/all', append('ALL 0 /all', true));
 	router.connect('/', append('CONNECT 0 /', true));
 	router.delete('/', append('DELETE 0 /', true));
 	router.del('/alias/del', append('DEL 0 /', true));
@@ -106,6 +107,8 @@ test.serial('method helpers should add middleware', async (t) => {
 	router.put('/', append('PUT 0 /', true));
 	router.trace('/', append('TRACE 0 /', true));
 
+	t.is(await simulate('GET', '/all'), 'ALL 0 /all');
+	t.is(await simulate('POST', '/all'), 'ALL 0 /all');
 	t.is(await simulate('CONNECT', '/'), 'CONNECT 0 /');
 	t.is(await simulate('DELETE', '/'), 'DELETE 0 /');
 	t.is(await simulate('DELETE', '/alias/del'), 'DEL 0 /');
