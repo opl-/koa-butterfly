@@ -1,4 +1,4 @@
-import {Context, Middleware, Next} from 'koa';
+import {DefaultContext, DefaultState, Middleware, Next, ParameterizedContext} from 'koa';
 import compose from 'koa-compose';
 
 import {Node} from './Node';
@@ -12,11 +12,11 @@ export enum SpecialMethod {
 	ANY = 'any',
 }
 
-export class RouterNodeData {
-	middleware: Map<string, Map<number, Middleware[]>> = new Map();
-	orderedMiddleware: Map<string, Middleware[]> = new Map();
+export class RouterNodeData<StateT = DefaultState, ContextT = DefaultContext> {
+	middleware: Map<string, Map<number, Middleware<StateT, ContextT>[]>> = new Map();
+	orderedMiddleware: Map<string, Middleware<StateT, ContextT>[]> = new Map();
 
-	getMiddlewareStage(method: string, stage: number): Middleware[] {
+	getMiddlewareStage(method: string, stage: number): Middleware<StateT, ContextT>[] {
 		let methodStages = this.middleware.get(method);
 
 		if (!methodStages) {
@@ -32,7 +32,7 @@ export class RouterNodeData {
 		return stageArray;
 	}
 
-	addMiddleware(method: string, stage: number, ...middleware: Middleware[]): void {
+	addMiddleware(method: string, stage: number, ...middleware: Middleware<StateT, ContextT>[]): void {
 		const stageArray = this.getMiddlewareStage(method, stage);
 
 		stageArray.push(...middleware);
@@ -50,7 +50,7 @@ export class RouterNodeData {
 		const orderedMiddleware = [...methodStages.keys()].sort().reduce((acc, key) => {
 			acc.push(...methodStages.get(key)!);
 			return acc;
-		}, [] as Middleware[]);
+		}, [] as Middleware<StateT, ContextT>[]);
 
 		this.orderedMiddleware.set(method, orderedMiddleware);
 	}
@@ -68,8 +68,8 @@ export interface RouterOptions {
 /**
  * A router implementation for Koa using a radix tree.
  */
-export class Router {
-	rootNode: Node<RouterNodeData> = new Node(() => new RouterNodeData());
+export class Router<StateT = DefaultState, ContextT = DefaultContext> {
+	rootNode: Node<RouterNodeData<StateT, ContextT>> = new Node(() => new RouterNodeData());
 
 	private strictSlashes: boolean;
 
@@ -84,7 +84,7 @@ export class Router {
 		return path;
 	}
 
-	addMiddleware(path: string, method: string, stage: number, ...middleware: Middleware[]): void {
+	addMiddleware(path: string, method: string, stage: number, ...middleware: Middleware<StateT, ContextT>[]): void {
 		if (path.length < 0 || path[0] !== '/') throw new Error('Paths must start with "/"');
 
 		const node = this.rootNode.findOrCreateNode(path);
@@ -92,11 +92,11 @@ export class Router {
 		node.data.addMiddleware(method, stage, ...middleware);
 	}
 
-	middleware(): Middleware {
+	middleware(): Middleware<StateT, ContextT> {
 		return this.middlewareHandler.bind(this);
 	}
 
-	async middlewareHandler(ctx: Context, next: Next): Promise<void> {
+	async middlewareHandler(ctx: ParameterizedContext<StateT, ContextT>, next: Next): Promise<void> {
 		const path = this.normalizePath(ctx.path);
 
 		const nodes = this.rootNode.findAll(path);

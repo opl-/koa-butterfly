@@ -91,3 +91,37 @@ test.serial('routes through special methods in order', async (t) => {
 
 	t.is(await simulate('GET', '/', false), 'MIDDLEWARE 0 /:MIDDLEWARE_EXACT 0 /:GET 0 /:ANY 0 /');
 });
+
+test('supports custom context and state types', async (t) => {
+	function expect<T>(arg: T) {
+		void arg;
+	}
+
+	function typeExtends<E, T extends E>() {}
+
+	interface CustomState {
+		numberProp: number;
+	}
+
+	interface CustomContext {
+		booleanProp: boolean;
+	}
+
+	const customRouter = new Router<CustomState, CustomContext>();
+
+	customRouter.addMiddleware('/', 'GET', 0, (ctx) => {
+		expect<boolean>(ctx.booleanProp);
+		// @ts-expect-error
+		expect(ctx.bad);
+
+		expect<number>(ctx.state.numberProp);
+		// @ts-expect-error
+		expect(ctx.state.bad);
+	});
+
+	type MiddlewareType = Parameters<ReturnType<typeof customRouter.middleware>>[0];
+	typeExtends<boolean, MiddlewareType['booleanProp']>();
+	typeExtends<number, MiddlewareType['state']['numberProp']>();
+
+	t.pass();
+});
