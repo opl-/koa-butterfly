@@ -39,11 +39,11 @@ test.beforeEach(() => {
 });
 
 test.serial('routes through the correct middleware', async (t) => {
-	router.addMiddleware('/api', SpecialMethod.MIDDLEWARE, 0, append('MIDDLEWARE 0 /api'));
-	router.addMiddleware('/api/user', 'GET', 0, append('GET 0 /api/user', true));
-	router.addMiddleware('/about', 'GET', 0, append('GET 0 /about', true));
-	router.addMiddleware('/', SpecialMethod.MIDDLEWARE, 0, append('MIDDLEWARE 0 /'));
-	router.addMiddleware('/', SpecialMethod.MIDDLEWARE_EXACT, 0, append('MIDDLEWARE_EXACT 0 /'));
+	router.addMiddleware(SpecialMethod.MIDDLEWARE, '/api', 0, append('MIDDLEWARE 0 /api'));
+	router.addMiddleware('GET', '/api/user', 0, append('GET 0 /api/user', true));
+	router.addMiddleware('GET', '/about', 0, append('GET 0 /about', true));
+	router.addMiddleware(SpecialMethod.MIDDLEWARE, '/', 0, append('MIDDLEWARE 0 /'));
+	router.addMiddleware(SpecialMethod.MIDDLEWARE_EXACT, '/', 0, append('MIDDLEWARE_EXACT 0 /'));
 
 	t.is(await simulate('GET', '/', false), 'MIDDLEWARE 0 /:MIDDLEWARE_EXACT 0 /');
 	t.is(await simulate('GET', '/api/user'), 'MIDDLEWARE 0 /:MIDDLEWARE 0 /api:GET 0 /api/user');
@@ -53,9 +53,9 @@ test.serial('routes through the correct middleware', async (t) => {
 });
 
 test.serial('routes to the correct path', async (t) => {
-	router.addMiddleware('/api/user', 'GET', 0, append('GET 0 /api/user', true));
-	router.addMiddleware('/about', 'GET', 0, append('GET 0 /about', true));
-	router.addMiddleware('/home', 'GET', 0, append('GET 0 /home', true));
+	router.addMiddleware('GET', '/api/user', 0, append('GET 0 /api/user', true));
+	router.addMiddleware('GET', '/about', 0, append('GET 0 /about', true));
+	router.addMiddleware('GET', '/home', 0, append('GET 0 /home', true));
 
 	t.is(await simulate('GET', '/api/user'), 'GET 0 /api/user');
 	t.is(await simulate('GET', '/about'), 'GET 0 /about');
@@ -64,9 +64,9 @@ test.serial('routes to the correct path', async (t) => {
 });
 
 test.serial('routes to the correct method', async (t) => {
-	router.addMiddleware('/api/user', 'GET', 0, append('GET 0 /api/user', true));
-	router.addMiddleware('/api/user', 'POST', 0, append('POST 0 /api/user', true));
-	router.addMiddleware('/about', 'GET', 0, append('GET 0 /about', true));
+	router.addMiddleware('GET', '/api/user', 0, append('GET 0 /api/user', true));
+	router.addMiddleware('POST', '/api/user', 0, append('POST 0 /api/user', true));
+	router.addMiddleware('GET', '/about', 0, append('GET 0 /about', true));
 
 	t.is(await simulate('GET', '/api/user'), 'GET 0 /api/user');
 	t.is(await simulate('POST', '/api/user'), 'POST 0 /api/user');
@@ -76,18 +76,18 @@ test.serial('routes to the correct method', async (t) => {
 });
 
 test.serial('routes according to stage order', async (t) => {
-	router.addMiddleware('/', SpecialMethod.MIDDLEWARE, 0, append('MIDDLEWARE 0 /'));
-	router.addMiddleware('/', SpecialMethod.MIDDLEWARE, -5, append('MIDDLEWARE -5 /'));
-	router.addMiddleware('/', SpecialMethod.MIDDLEWARE, 5, append('MIDDLEWARE 5 /'));
+	router.addMiddleware(SpecialMethod.MIDDLEWARE, '/', 0, append('MIDDLEWARE 0 /'));
+	router.addMiddleware(SpecialMethod.MIDDLEWARE, '/', -5, append('MIDDLEWARE -5 /'));
+	router.addMiddleware(SpecialMethod.MIDDLEWARE, '/', 5, append('MIDDLEWARE 5 /'));
 
 	t.is(await simulate('GET', '/', false), 'MIDDLEWARE -5 /:MIDDLEWARE 0 /:MIDDLEWARE 5 /');
 });
 
 test.serial('routes through special methods in order', async (t) => {
-	router.addMiddleware('/', SpecialMethod.MIDDLEWARE, 0, append('MIDDLEWARE 0 /'));
-	router.addMiddleware('/', SpecialMethod.MIDDLEWARE_EXACT, 0, append('MIDDLEWARE_EXACT 0 /'));
-	router.addMiddleware('/', 'GET', 0, append('GET 0 /'));
-	router.addMiddleware('/', SpecialMethod.ANY, 0, append('ANY 0 /'));
+	router.addMiddleware(SpecialMethod.MIDDLEWARE, '/', 0, append('MIDDLEWARE 0 /'));
+	router.addMiddleware(SpecialMethod.MIDDLEWARE_EXACT, '/', 0, append('MIDDLEWARE_EXACT 0 /'));
+	router.addMiddleware('GET', '/', 0, append('GET 0 /'));
+	router.addMiddleware(SpecialMethod.ANY, '/', 0, append('ANY 0 /'));
 
 	t.is(await simulate('GET', '/', false), 'MIDDLEWARE 0 /:MIDDLEWARE_EXACT 0 /:GET 0 /:ANY 0 /');
 });
@@ -109,7 +109,7 @@ test('supports custom context and state types', async (t) => {
 
 	const customRouter = new Router<CustomState, CustomContext>();
 
-	customRouter.addMiddleware('/', 'GET', 0, (ctx) => {
+	customRouter.addMiddleware('GET', '/', 0, (ctx) => {
 		expect<boolean>(ctx.booleanProp);
 		// @ts-expect-error
 		expect(ctx.bad);

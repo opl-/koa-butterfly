@@ -84,7 +84,7 @@ export class Router<StateT = DefaultState, ContextT = DefaultContext> {
 		return path;
 	}
 
-	addMiddleware(path: string, method: string, stage: number, ...middleware: Middleware<StateT, ContextT>[]): void {
+	addMiddleware(method: string, path: string, stage: number, ...middleware: Middleware<StateT, ContextT>[]): void {
 		if (path.length < 0 || path[0] !== '/') throw new Error('Paths must start with "/"');
 
 		const node = this.rootNode.findOrCreateNode(path);
