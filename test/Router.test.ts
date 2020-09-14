@@ -140,6 +140,21 @@ test.serial('use() should add middleware and handle the wildcard', async (t) => 
 	t.is(await simulate('GET', '/test'), 'USE 0 /*:GET 0 /test');
 });
 
+test.serial('use(\'/*\') (with a wildcard) should attach all middleware as not exact', async (t) => {
+	router.use('/*', append('USE1 0 /*'), append('USE2 0 /*'));
+	router.get('/test', append('GET 0 /test', true));
+
+	t.is(await simulate('GET', '/test'), 'USE1 0 /*:USE2 0 /*:GET 0 /test');
+});
+
+test.serial('use(\'/\') (without a wildcard) should attach all middleware as exact', async (t) => {
+	router.use('/', append('USE1 0 /'), append('USE2 0 /'));
+	router.get('/test', append('GET 0 /test', true));
+
+	t.is(await simulate('GET', '/test'), 'GET 0 /test');
+	t.is(await simulate('GET', '/', false), 'USE1 0 /:USE2 0 /');
+});
+
 test('supports custom context and state types', async (t) => {
 	function expect<T>(arg: T) {
 		void arg;

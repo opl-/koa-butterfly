@@ -121,9 +121,24 @@ export class Router<StateT = DefaultState, ContextT = DefaultContext> {
 		return compose(matchingMiddleware)(ctx, next);
 	}
 
-	private addMiddlewareHelper(method: string, path: string, stage: number | Middleware<StateT, ContextT>, ...middleware: Middleware<StateT, ContextT>[]): this {
-		const combinedMiddleware = typeof stage === 'number' ? middleware : [stage].concat(middleware);
+	use(path: string, ...middleware: Middleware<StateT, ContextT>[]): this;
+	use(path: string, stage: number, ...middleware: Middleware<StateT, ContextT>[]): this;
+	use(path: string, stage: number | Middleware<StateT, ContextT>, ...middleware: Middleware<StateT, ContextT>[]): this {
 		const decidedStage = typeof stage === 'number' ? stage : 0;
+		const combinedMiddleware = typeof stage === 'number' ? middleware : [stage].concat(middleware);
+
+		if (path.endsWith('*')) {
+			this.addMiddleware(SpecialMethod.MIDDLEWARE, path.substr(0, path.length - 1), decidedStage, ...combinedMiddleware);
+			return this;
+		}
+
+		this.addMiddleware(SpecialMethod.MIDDLEWARE_EXACT, path, decidedStage, ...combinedMiddleware);
+		return this;
+	}
+
+	private addMiddlewareHelper(method: string, path: string, stage: number | Middleware<StateT, ContextT>, ...middleware: Middleware<StateT, ContextT>[]): this {
+		const decidedStage = typeof stage === 'number' ? stage : 0;
+		const combinedMiddleware = typeof stage === 'number' ? middleware : [stage].concat(middleware);
 
 		if (combinedMiddleware.length === 0) throw new Error('No middleware provided');
 
@@ -131,16 +146,6 @@ export class Router<StateT = DefaultState, ContextT = DefaultContext> {
 		this.addMiddleware(method, path, decidedStage, combinedMiddleware[combinedMiddleware.length - 1]);
 
 		return this;
-	}
-
-	use(path: string, ...middleware: Middleware<StateT, ContextT>[]): this;
-	use(path: string, stage: number, ...middleware: Middleware<StateT, ContextT>[]): this;
-	use(path: string, stage: number | Middleware<StateT, ContextT>, ...middleware: Middleware<StateT, ContextT>[]): this {
-		if (path.endsWith('*')) {
-			return this.addMiddlewareHelper(SpecialMethod.MIDDLEWARE, path.substr(0, path.length - 1), stage, ...middleware);
-		}
-
-		return this.addMiddlewareHelper(SpecialMethod.MIDDLEWARE_EXACT, path, stage, ...middleware);
 	}
 
 	all(path: string, ...middleware: Middleware<StateT, ContextT>[]): this;
