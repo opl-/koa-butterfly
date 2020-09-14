@@ -136,6 +136,7 @@ export class Node<D> {
 	 */
 	findOrCreateNode(path: string): Node<D> {
 		const nodes = this.findAll(path, true);
+		/* istanbul ignore next: sanity check that should never be true */
 		if (!nodes) throw new Error(`findAll failed to find or create a new node (for ${JSON.stringify(path)})`);
 		return nodes[nodes.length - 1];
 	}
