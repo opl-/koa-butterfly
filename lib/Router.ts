@@ -56,7 +56,7 @@ export class RouterNodeData<StateT = DefaultState, ContextT = DefaultContext> {
 	}
 
 	toString(): string {
-		return `${this.middleware.size} stages, ${[...this.orderedMiddleware].map(([method, middleware]) => `${method} (${middleware.length})`).join(',')} methods`;
+		return `${this.middleware.size} stages. middleware: ${[...this.orderedMiddleware].map(([method, middleware]) => `${middleware.length} ${method}`).join(', ')}`;
 	}
 }
 
