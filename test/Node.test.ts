@@ -159,6 +159,18 @@ test('stringify()', (t) => {
 	t.is(node.stringify(), '<root>: node data\n  /test: node data');
 });
 
+test('*[Symbol.iterator]()', (t) => {
+	const root = new Node(() => null);
+
+	t.deepEqual([...root], [root]);
+	const slash = root.findOrCreateNode('/');
+	t.deepEqual([...root], [root, slash]);
+	const a = root.findOrCreateNode('/a');
+	t.deepEqual([...root], [root, slash, a]);
+	const b = root.findOrCreateNode('/b');
+	t.deepEqual([...root], [root, slash, a, b]);
+});
+
 test('commonLength()', (t) => {
 	t.is(Node.commonLength('', ''), 0);
 	t.is(Node.commonLength('aa', 'aa'), 2);
