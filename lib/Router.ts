@@ -66,6 +66,19 @@ export interface RouterOptions {
 }
 
 /**
+ * Type that assumes that:
+ * - if `next` isn't done, then `current` can't be done either,
+ * - `current` is never going to be done.
+ */
+type IteratorResultSequence<G extends Generator> = {
+	current: G extends Generator<infer Y> ? IteratorYieldResult<Y> : never;
+	next: G extends Generator<any, infer R> ? IteratorReturnResult<R> : never;
+} | {
+	current: G extends Generator<infer Y> ? IteratorYieldResult<Y> : never;
+	next: G extends Generator<infer Y> ? IteratorYieldResult<Y> : never;
+};
+
+/**
  * A router implementation for Koa using a radix tree.
  */
 export class Router<StateT = DefaultState, ContextT = DefaultContext> {
@@ -97,28 +110,63 @@ export class Router<StateT = DefaultState, ContextT = DefaultContext> {
 	}
 
 	async middlewareHandler(ctx: ParameterizedContext<StateT, ContextT>, next: Next): Promise<void> {
-		const path = this.normalizePath(ctx.path);
+		const normalizedPath = this.normalizePath(ctx.path);
 
-		const nodes = this.rootNode.findAll(path);
-		if (!nodes) return next();
+		let nodeIterator = this.rootNode.nodeIterator(normalizedPath);
 
-		// TODO: cache if no params
-		const matchingMiddleware = nodes
-			.filter((node, index, arr) => {
-				// Always leave in the root and last Node
-				if (index === 0 || index === arr.length - 1) return true;
-				// Allow any Nodes that end with a slash or are the last part of a path segment
-				if (node.segment.endsWith('/') || arr[index + 1].segment.startsWith('/')) return true;
-				// Don't allow any other nodes
-				return false;
-			})
-			.map((node) => node.data.orderedMiddleware.get(SpecialMethod.MIDDLEWARE) || [])
-			.reduce((acc, arr) => acc.concat(arr))
-			.concat(nodes[nodes.length - 1].data.orderedMiddleware.get(SpecialMethod.MIDDLEWARE_EXACT) || [])
-			.concat(nodes[nodes.length - 1].data.orderedMiddleware.get(ctx.method) || [])
-			.concat(nodes[nodes.length - 1].data.orderedMiddleware.get(SpecialMethod.ALL) || []);
+		let result: IteratorResultSequence<typeof nodeIterator> = {
+			// @ts-ignore: Set `current` to `undefined` since it'll always be set to `next` on the first pass
+			current: undefined as unknown,
+			next: nodeIterator.next(),
+		};
+		let runNode: this['rootNode'] | null = null;
 
-		return compose(matchingMiddleware)(ctx, next);
+		async function nextNode(): Promise<void> {
+			// FIXME: move this block to the bottom to avoid an extra function call
+			if (runNode) {
+				// The node is final if there are no nodes to follow and if no path remains
+				if (result.next.done && result.current.value.remainingPath.length === 0) {
+					// Run node as the final node
+					const matchingMiddleware = (runNode.data.orderedMiddleware.get(SpecialMethod.MIDDLEWARE) || [])
+						.concat(runNode.data.orderedMiddleware.get(SpecialMethod.MIDDLEWARE_EXACT) || [])
+						.concat(runNode.data.orderedMiddleware.get(ctx.method) || [])
+						.concat(runNode.data.orderedMiddleware.get(SpecialMethod.ALL) || []);
+					runNode = null;
+
+					return compose(matchingMiddleware)(ctx, next);
+				}
+
+				// Run node as middleware only
+				const middleware = runNode.data.orderedMiddleware.get(SpecialMethod.MIDDLEWARE);
+				runNode = null;
+
+				if (middleware) {
+					return compose(middleware)(ctx, nextNode);
+				}
+
+				return nextNode();
+			}
+
+			// We reached the end of the chain, but nextNode was called. Go to the next middleware in the parent stack.
+			if (result.next.done) return next();
+
+			result.current = result.next;
+			result.next = nodeIterator.next();
+
+			if (result.next.done) {
+				runNode = result.current.value.node;
+				return nextNode();
+			}
+
+			if (result.current.value.node.segment.endsWith('/') || result.next.value.node.segment.startsWith('/')) {
+				runNode = result.current.value.node;
+				return nextNode();
+			}
+
+			return nextNode();
+		}
+
+		await nextNode();
 	}
 
 	use(path: string, ...middleware: Middleware<StateT, ContextT>[]): this;

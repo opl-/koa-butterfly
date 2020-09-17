@@ -50,8 +50,7 @@ test.serial('routes through the correct middleware', async (t) => {
 	t.is(await simulate('GET', '/', false), 'MIDDLEWARE 0 /:MIDDLEWARE_EXACT 0 /');
 	t.is(await simulate('GET', '/api/user'), 'MIDDLEWARE 0 /:MIDDLEWARE 0 /api:GET 0 /api/user');
 	t.is(await simulate('GET', '/about'), 'MIDDLEWARE 0 /:GET 0 /about');
-	// FIXME: what should happen if the request matches with a shorter path? should it still call middleware that matches up to a certain point?
-	t.is(await simulate('GET', '/wrong', false), undefined);
+	t.is(await simulate('GET', '/wrong', false), 'MIDDLEWARE 0 /');
 });
 
 test.serial('routes to the correct path', async (t) => {
