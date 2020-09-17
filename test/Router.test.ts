@@ -17,7 +17,7 @@ async function simulate(method: MethodsWithHelpers, path: string, shouldMatch = 
 
 	let matched = true;
 
-	await router.middlewareHandler(context as any, async () => {
+	await router.middleware()(context as any, async () => {
 		matched = false;
 	});
 
