@@ -15,6 +15,7 @@ export enum SpecialMethod {
 export class RouterNodeData<StateT = DefaultState, ContextT = DefaultContext> {
 	middleware: Map<string, Map<number, Middleware<StateT, ContextT>[]>> = new Map();
 	orderedMiddleware: Map<string, Middleware<StateT, ContextT>[]> = new Map();
+	orderedMiddlewareForExact: Middleware<StateT, ContextT>[] = [];
 
 	getMiddlewareStage(method: string, stage: number): Middleware<StateT, ContextT>[] {
 		let methodStages = this.middleware.get(method);
@@ -53,6 +54,39 @@ export class RouterNodeData<StateT = DefaultState, ContextT = DefaultContext> {
 		}, [] as Middleware<StateT, ContextT>[]);
 
 		this.orderedMiddleware.set(method, orderedMiddleware);
+
+		if (method === SpecialMethod.MIDDLEWARE || method === SpecialMethod.MIDDLEWARE_EXACT) {
+			this.orderMiddlewareForExact();
+		}
+	}
+
+	orderMiddlewareForExact(): void {
+		const middlewareStages = this.middleware.get(SpecialMethod.MIDDLEWARE);
+		const exactMiddlewareStages = this.middleware.get(SpecialMethod.MIDDLEWARE_EXACT);
+
+		// If there's no middleware for either, just use the ordered middleware for the other
+		if (!middlewareStages && !exactMiddlewareStages) {
+			this.orderedMiddlewareForExact = [];
+			return;
+		} else if (!middlewareStages) {
+			this.orderedMiddlewareForExact = this.orderedMiddleware.get(SpecialMethod.MIDDLEWARE_EXACT)!.slice();
+			return;
+		} else if (!exactMiddlewareStages) {
+			this.orderedMiddlewareForExact = this.orderedMiddleware.get(SpecialMethod.MIDDLEWARE)!.slice();
+			return;
+		}
+
+		const allStages = [...middlewareStages.keys(), ...exactMiddlewareStages.keys()]
+			// Remove duplicates
+			.filter((item, index, arr) => arr.indexOf(item) === index)
+			.sort();
+
+		// Create an array containing middleware and exact middleware, sorted according to their respective stages
+		this.orderedMiddlewareForExact = allStages.reduce((acc, stage) => {
+			acc.push(...(middlewareStages.get(stage)?.values() || []));
+			acc.push(...(exactMiddlewareStages.get(stage)?.values() || []));
+			return acc;
+		}, [] as Middleware<StateT, ContextT>[]);
 	}
 
 	toString(): string {
@@ -134,8 +168,7 @@ export class Router<StateT = DefaultState, ContextT = DefaultContext> {
 				// The node is final if there are no nodes to follow and if no path remains (or if strict slashes are disabled, if only a slash remains)
 				if (result.next.done && (remainingPath.length === 0 || (!router.strictSlashes && remainingPath === '/'))) {
 					// Run node as the final node
-					const matchingMiddleware = (runNode.data.orderedMiddleware.get(SpecialMethod.MIDDLEWARE) || [])
-						.concat(runNode.data.orderedMiddleware.get(SpecialMethod.MIDDLEWARE_EXACT) || [])
+					const matchingMiddleware = runNode.data.orderedMiddlewareForExact
 						.concat(runNode.data.orderedMiddleware.get(ctx.method) || [])
 						.concat(runNode.data.orderedMiddleware.get(SpecialMethod.ALL) || []);
 					runNode = null;

@@ -80,8 +80,9 @@ test.serial('routes according to stage order', async (t) => {
 	router.addMiddleware(SpecialMethod.MIDDLEWARE, '/', 0, append('MIDDLEWARE 0 /'));
 	router.addMiddleware(SpecialMethod.MIDDLEWARE, '/', -5, append('MIDDLEWARE -5 /'));
 	router.addMiddleware(SpecialMethod.MIDDLEWARE, '/', 5, append('MIDDLEWARE 5 /'));
+	router.addMiddleware(SpecialMethod.MIDDLEWARE_EXACT, '/', 0, append('MIDDLEWARE_EXACT 0 /'));
 
-	t.is(await simulate('GET', '/', false), 'MIDDLEWARE -5 /:MIDDLEWARE 0 /:MIDDLEWARE 5 /');
+	t.is(await simulate('GET', '/', false), 'MIDDLEWARE -5 /:MIDDLEWARE 0 /:MIDDLEWARE_EXACT 0 /:MIDDLEWARE 5 /');
 });
 
 test.serial('routes through special methods in order', async (t) => {
@@ -157,8 +158,7 @@ test.serial('method helpers should add middleware with correct stages', async (t
 	router.use('/*', -5, append('MIDDLEWARE -5 /*'));
 	router.use('/*', 5, append('MIDDLEWARE 5 /*'));
 
-	// TODO: should middleware and exact middleware stages be ordered together? i feel like they should be ordered together...
-	t.is(await simulate('GET', '/'), 'MIDDLEWARE -5 /*:MIDDLEWARE 5 /*:MIDDLEWARE_EXACT 0 /:GET 0 /');
+	t.is(await simulate('GET', '/'), 'MIDDLEWARE -5 /*:MIDDLEWARE_EXACT 0 /:MIDDLEWARE 5 /*:GET 0 /');
 });
 
 test.serial('use() should add middleware and handle the wildcard', async (t) => {
