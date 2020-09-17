@@ -156,6 +156,78 @@ test('findAll() should return the correct nodes', (t) => {
 	t.is(root.findAll('/c'), null);
 });
 
+test('nodeIterator() should iterate over all nodes', (t) => {
+	const root = new Node(() => null);
+
+	const slash = root.findOrCreateNode('/');
+	const a = root.findOrCreateNode('/a');
+	const b = root.findOrCreateNode('/b');
+
+	t.deepEqual([...root.nodeIterator('')], [{node: root, remainingPath: ''}]);
+	t.deepEqual([...root.nodeIterator('/')], [{node: root, remainingPath: '/'}, {node: slash, remainingPath: ''}]);
+	t.deepEqual([...root.nodeIterator('/a')], [{node: root, remainingPath: '/a'}, {node: slash, remainingPath: 'a'}, {node: a, remainingPath: ''}]);
+	t.deepEqual([...root.nodeIterator('/b')], [{node: root, remainingPath: '/b'}, {node: slash, remainingPath: 'b'}, {node: b, remainingPath: ''}]);
+	t.deepEqual([...root.nodeIterator('/c')], [{node: root, remainingPath: '/c'}, {node: slash, remainingPath: 'c'}]);
+});
+
+test('nodeIterator() should allow changing remainingPath', (t) => {
+	const root = new Node(() => null);
+
+	function result(node: Node<any>, remainingPath: string) {
+		return {
+			done: false,
+			value: {
+				node,
+				remainingPath,
+			},
+		} as const;
+	}
+
+	const doneResult = {
+		done: true,
+		value: undefined,
+	} as const;
+
+	const slash = root.findOrCreateNode('/');
+	const a = root.findOrCreateNode('/a');
+	const b = root.findOrCreateNode('/b');
+
+	// Change path right before it's matched to a valid node
+	let generator = root.nodeIterator('/a');
+	t.deepEqual(generator.next(), result(root, '/a'));
+	t.deepEqual(generator.next(), result(slash, 'a'));
+	t.deepEqual(generator.next('b'), result(b, ''));
+	t.deepEqual(generator.next(), doneResult);
+
+	// Change path after it wasn't going to match
+	generator = root.nodeIterator('/xa');
+	t.deepEqual(generator.next(), result(root, '/xa'));
+	t.deepEqual(generator.next(), result(slash, 'xa'));
+	t.deepEqual(generator.next('a'), result(a, ''));
+	t.deepEqual(generator.next(), doneResult);
+
+	// Change path to leave some remaining at the end
+	generator = root.nodeIterator('/ac');
+	t.deepEqual(generator.next(), result(root, '/ac'));
+	t.deepEqual(generator.next('/ax'), result(slash, 'ax'));
+	t.deepEqual(generator.next(), result(a, 'x'));
+	t.deepEqual(generator.next(), doneResult);
+
+	// Change path after we reached the end so it matches more nodes
+	generator = root.nodeIterator('/');
+	t.deepEqual(generator.next(), result(root, '/'));
+	t.deepEqual(generator.next(), result(slash, ''));
+	t.deepEqual(generator.next('a'), result(a, ''));
+	t.deepEqual(generator.next(), doneResult);
+
+	// Changing path on first call should do nothing as the first path is passed as an argument
+	generator = root.nodeIterator('/a');
+	t.deepEqual(generator.next('x'), result(root, '/a'));
+	t.deepEqual(generator.next(), result(slash, 'a'));
+	t.deepEqual(generator.next(), result(a, ''));
+	t.deepEqual(generator.next(), doneResult);
+});
+
 test('isLeaf()', (t) => {
 	const node = new Node(() => null);
 

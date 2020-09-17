@@ -1,3 +1,8 @@
+export interface IteratorResult<D> {
+	node: Node<D>;
+	remainingPath: string;
+}
+
 export class Node<D> {
 	/** Path segment this Node represents. */
 	segment: string;
@@ -29,6 +34,54 @@ export class Node<D> {
 	 */
 	isLeaf(): boolean {
 		return this.children.length === 0;
+	}
+
+	/**
+	 * Generator function yielding for every Node encountered.
+	 *
+	 * Similar to `findAll()` but allows stopping at any point (by not invoking the generator) and changing the path on the fly (to handle params).
+	 *
+	 * @param path Path of the node to find
+	 */
+	*nodeIterator(path: string): Generator<IteratorResult<D>, void, undefined | string> {
+		let remainingPath = (yield {
+			node: this,
+			remainingPath: path,
+		}) || path;
+
+		// If path is empty, stop there
+		if (remainingPath.length === 0) return;
+
+		let node: Node<D> | null = this;
+
+		while (node !== null && !node.isLeaf() && remainingPath.length > 0) {
+			let found = false;
+
+			for (let child of node.children) {
+				if (remainingPath.startsWith(child.segment)) {
+					node = child;
+					remainingPath = remainingPath.substr(child.segment.length);
+
+					const newPath = yield {
+						node,
+						remainingPath,
+					};
+
+					// If a new path is passed in, replace the remaining path with it.
+					if (typeof newPath === 'string') remainingPath = newPath;
+
+					// If no more path remains, end the generator
+					if (remainingPath.length === 0) return;
+
+					// We found our child, iterate over its children
+					found = true;
+					break;
+				}
+			}
+
+			// If we didn't find any children, we reached the end of the chain and should stop
+			if (!found) break;
+		}
 	}
 
 	/**
