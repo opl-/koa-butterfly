@@ -90,13 +90,6 @@ export class Router<StateT = DefaultState, ContextT = DefaultContext> {
 		this.strictSlashes = opts.strictSlashes ?? false;
 	}
 
-	normalizePath(path: string): string {
-		if (this.strictSlashes) return path;
-		if (path === '/') return path;
-		if (path.endsWith('/')) return path.substr(0, path.length - 1);
-		return path;
-	}
-
 	addMiddleware(method: string, path: string, stage: number, ...middleware: Middleware<StateT, ContextT>[]): void {
 		if (path.length < 0 || path[0] !== '/') throw new Error('Paths must start with "/"');
 
@@ -110,9 +103,9 @@ export class Router<StateT = DefaultState, ContextT = DefaultContext> {
 	}
 
 	async middlewareHandler(ctx: ParameterizedContext<StateT, ContextT>, next: Next): Promise<void> {
-		const normalizedPath = this.normalizePath(ctx.path);
+		const router = this;
 
-		let nodeIterator = this.rootNode.nodeIterator(normalizedPath);
+		let nodeIterator = this.rootNode.nodeIterator(ctx.path);
 
 		let result: IteratorResultSequence<typeof nodeIterator> = {
 			// @ts-ignore: Set `current` to `undefined` since it'll always be set to `next` on the first pass
@@ -128,15 +121,18 @@ export class Router<StateT = DefaultState, ContextT = DefaultContext> {
 			result.current = result.next;
 			result.next = nodeIterator.next();
 
+			const currentNode = result.current.value.node;
+			const remainingPath = result.current.value.remainingPath;
+
 			if (result.next.done) {
-				runNode = result.current.value.node;
-			} else if (result.current.value.node.segment.endsWith('/') || result.next.value.node.segment.startsWith('/')) {
-				runNode = result.current.value.node;
+				runNode = currentNode;
+			} else if (currentNode.segment.endsWith('/') || result.next.value.node.segment.startsWith('/')) {
+				runNode = currentNode;
 			}
 
 			if (runNode) {
-				// The node is final if there are no nodes to follow and if no path remains
-				if (result.next.done && result.current.value.remainingPath.length === 0) {
+				// The node is final if there are no nodes to follow and if no path remains (or if strict slashes are disabled, if only a slash remains)
+				if (result.next.done && (remainingPath.length === 0 || (!router.strictSlashes && remainingPath === '/'))) {
 					// Run node as the final node
 					const matchingMiddleware = (runNode.data.orderedMiddleware.get(SpecialMethod.MIDDLEWARE) || [])
 						.concat(runNode.data.orderedMiddleware.get(SpecialMethod.MIDDLEWARE_EXACT) || [])

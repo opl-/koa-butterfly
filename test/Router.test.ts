@@ -93,6 +93,38 @@ test.serial('routes through special methods in order', async (t) => {
 	t.is(await simulate('GET', '/', false), 'MIDDLEWARE 0 /:MIDDLEWARE_EXACT 0 /:GET 0 /:ANY 0 /');
 });
 
+test.serial('should recognize significance of trailing slashes in routes', async (t) => {
+	router.addMiddleware(SpecialMethod.MIDDLEWARE, '/api', 0, append('MIDDLEWARE 0 /api'));
+	router.addMiddleware(SpecialMethod.MIDDLEWARE, '/api/', 0, append('MIDDLEWARE 0 /api/'));
+	router.addMiddleware('GET', '/api/user', 0, append('GET 0 /api/user', true));
+
+	t.is(await simulate('GET', '/api', false), 'MIDDLEWARE 0 /api');
+	t.is(await simulate('GET', '/api/', false), 'MIDDLEWARE 0 /api:MIDDLEWARE 0 /api/');
+	t.is(await simulate('GET', '/api/user'), 'MIDDLEWARE 0 /api:MIDDLEWARE 0 /api/:GET 0 /api/user');
+});
+
+test.serial('should respect both values for the strictSlashes option', async (t) => {
+	router.addMiddleware('GET', '/about', 0, append('GET 0 /about', true));
+	router.addMiddleware('GET', '/shop/', 0, append('GET 0 /shop/', true));
+
+	t.is(await simulate('GET', '/about'), 'GET 0 /about');
+	t.is(await simulate('GET', '/about/'), 'GET 0 /about');
+	t.is(await simulate('GET', '/shop', false), undefined);
+	t.is(await simulate('GET', '/shop/'), 'GET 0 /shop/');
+
+	router = new Router({
+		strictSlashes: true,
+	});
+
+	router.addMiddleware('GET', '/about', 0, append('GET 0 /about', true));
+	router.addMiddleware('GET', '/shop/', 0, append('GET 0 /shop/', true));
+
+	t.is(await simulate('GET', '/about'), 'GET 0 /about');
+	t.is(await simulate('GET', '/about/', false), undefined);
+	t.is(await simulate('GET', '/shop', false), undefined);
+	t.is(await simulate('GET', '/shop/'), 'GET 0 /shop/');
+});
+
 test.serial('method helpers should add middleware', async (t) => {
 	router.all('/all', append('ALL 0 /all', true));
 	router.connect('/', append('CONNECT 0 /', true));
