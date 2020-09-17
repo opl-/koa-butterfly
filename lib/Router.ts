@@ -122,7 +122,18 @@ export class Router<StateT = DefaultState, ContextT = DefaultContext> {
 		let runNode: this['rootNode'] | null = null;
 
 		async function nextNode(): Promise<void> {
-			// FIXME: move this block to the bottom to avoid an extra function call
+			// We reached the end of the chain, but nextNode was called. Go to the next middleware in the parent stack.
+			if (result.next.done) return next();
+
+			result.current = result.next;
+			result.next = nodeIterator.next();
+
+			if (result.next.done) {
+				runNode = result.current.value.node;
+			} else if (result.current.value.node.segment.endsWith('/') || result.next.value.node.segment.startsWith('/')) {
+				runNode = result.current.value.node;
+			}
+
 			if (runNode) {
 				// The node is final if there are no nodes to follow and if no path remains
 				if (result.next.done && result.current.value.remainingPath.length === 0) {
@@ -143,24 +154,6 @@ export class Router<StateT = DefaultState, ContextT = DefaultContext> {
 				if (middleware) {
 					return compose(middleware)(ctx, nextNode);
 				}
-
-				return nextNode();
-			}
-
-			// We reached the end of the chain, but nextNode was called. Go to the next middleware in the parent stack.
-			if (result.next.done) return next();
-
-			result.current = result.next;
-			result.next = nodeIterator.next();
-
-			if (result.next.done) {
-				runNode = result.current.value.node;
-				return nextNode();
-			}
-
-			if (result.current.value.node.segment.endsWith('/') || result.next.value.node.segment.startsWith('/')) {
-				runNode = result.current.value.node;
-				return nextNode();
 			}
 
 			return nextNode();
