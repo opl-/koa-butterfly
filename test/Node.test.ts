@@ -238,7 +238,7 @@ test('isLeaf()', (t) => {
 });
 
 test('stringify()', (t) => {
-	const node = new Node(() => ({
+	let node: Node<any> = new Node(() => ({
 		toString() {
 			return 'node data';
 		}
@@ -246,6 +246,13 @@ test('stringify()', (t) => {
 	node.findOrCreateNode('/test');
 
 	t.is(node.stringify(), '<root>: node data\n  /test: node data');
+
+	node = new Node(() => ({
+		toString: 'nope',
+	}));
+	node.findOrCreateNode('/test');
+
+	t.is(node.stringify(), '<root>\n  /test');
 });
 
 test('*[Symbol.iterator]()', (t) => {
