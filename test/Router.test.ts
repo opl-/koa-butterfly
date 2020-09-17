@@ -164,11 +164,13 @@ test.serial('method helpers should add middleware with correct stages', async (t
 test.serial('use() should add middleware and handle the wildcard', async (t) => {
 	router.use('/', append('USE 0 /'));
 	router.use('/*', append('USE 0 /*'));
+	router.use('/test*', append('USE 0 /test*'));
 	router.get('/', append('GET 0 /', true));
 	router.get('/test', append('GET 0 /test', true));
 
 	t.is(await simulate('GET', '/'), 'USE 0 /*:USE 0 /:GET 0 /');
-	t.is(await simulate('GET', '/test'), 'USE 0 /*:GET 0 /test');
+	t.is(await simulate('GET', '/test'), 'USE 0 /*:USE 0 /test*:GET 0 /test');
+	t.is(await simulate('GET', '/test/hello', false), 'USE 0 /*:USE 0 /test*');
 });
 
 test.serial('use(\'/*\') (with a wildcard) should attach all middleware as not exact', async (t) => {
