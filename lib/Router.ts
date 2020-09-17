@@ -168,11 +168,20 @@ export class Router<StateT = DefaultState, ContextT = DefaultContext> {
 				// The node is final if there are no nodes to follow and if no path remains (or if strict slashes are disabled, if only a slash remains)
 				if (result.next.done && (remainingPath.length === 0 || (!router.strictSlashes && remainingPath === '/'))) {
 					// Run node as the final node
-					const matchingMiddleware = runNode.data.orderedMiddlewareForExact
-						.concat(runNode.data.orderedMiddleware.get(ctx.method) || [])
-						.concat(runNode.data.orderedMiddleware.get(SpecialMethod.ALL) || []);
-					runNode = null;
+					const matchingMiddleware = runNode.data.orderedMiddlewareForExact.slice();
 
+					const middlewareForMethod = runNode.data.orderedMiddleware.get(ctx.method);
+					if (middlewareForMethod) matchingMiddleware.push(...middlewareForMethod);
+
+					if (ctx.method === 'HEAD') {
+						const middlewareForGet = runNode.data.orderedMiddleware.get('GET');
+						if (middlewareForGet) matchingMiddleware.push(...middlewareForGet);
+					}
+
+					const middlewareForAll = runNode.data.orderedMiddleware.get(SpecialMethod.ALL);
+					if (middlewareForAll) matchingMiddleware.push(...middlewareForAll);
+
+					runNode = null;
 					return compose(matchingMiddleware)(ctx, next);
 				}
 

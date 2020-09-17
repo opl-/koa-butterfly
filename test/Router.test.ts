@@ -188,6 +188,20 @@ test.serial('use(\'/\') (without a wildcard) should attach all middleware as exa
 	t.is(await simulate('GET', '/', false), 'USE1 0 /:USE2 0 /');
 });
 
+test.serial('HEAD requests should be redirected to GET if needed', async (t) => {
+	router.get('/home', append('GET 0 /home', true));
+	router.head('/api', append('HEAD 0 /api', true));
+	router.get('/api', append('GET 0 /api', true));
+	router.head('/shop', append('HEAD 0 /shop'));
+	router.get('/shop', append('GET 0 /shop', true));
+
+	t.is(await simulate('HEAD', '/home'), 'GET 0 /home');
+	t.is(await simulate('HEAD', '/api'), 'HEAD 0 /api');
+	t.is(await simulate('GET', '/api'), 'GET 0 /api');
+	t.is(await simulate('HEAD', '/shop'), 'HEAD 0 /shop:GET 0 /shop');
+	t.is(await simulate('GET', '/shop'), 'GET 0 /shop');
+});
+
 test('supports custom context and state types', async (t) => {
 	function expect<T>(arg: T) {
 		void arg;
