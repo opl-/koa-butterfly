@@ -137,9 +137,13 @@ export class Router<StateT = DefaultState, ContextT = DefaultContext> {
 	}
 
 	async middlewareHandler(ctx: ParameterizedContext<StateT, ContextT>, next: Next): Promise<void> {
+		return this.handleNodePath(this.rootNode, ctx, next);
+	}
+
+	async handleNodePath(node: this['rootNode'], ctx: ParameterizedContext<StateT, ContextT>, next: Next): Promise<void> {
 		const router = this;
 
-		let nodeIterator = this.rootNode.nodeIterator(ctx.path);
+		let nodeIterator = node.nodeIterator(ctx.path);
 
 		let result: IteratorResultSequence<typeof nodeIterator> = {
 			// @ts-ignore: Set `current` to `undefined` since it'll always be set to `next` on the first pass
