@@ -78,11 +78,12 @@ test.serial('routes to the correct method', async (t) => {
 
 test.serial('routes according to stage order', async (t) => {
 	router.addMiddleware(SpecialMethod.MIDDLEWARE, '/', 0, append('MIDDLEWARE 0 /'));
+	router.addMiddleware(SpecialMethod.MIDDLEWARE, '/', 10, append('MIDDLEWARE 10 /'));
 	router.addMiddleware(SpecialMethod.MIDDLEWARE, '/', -5, append('MIDDLEWARE -5 /'));
 	router.addMiddleware(SpecialMethod.MIDDLEWARE, '/', 5, append('MIDDLEWARE 5 /'));
 	router.addMiddleware(SpecialMethod.MIDDLEWARE_EXACT, '/', 0, append('MIDDLEWARE_EXACT 0 /'));
 
-	t.is(await simulate('GET', '/', false), 'MIDDLEWARE -5 /:MIDDLEWARE 0 /:MIDDLEWARE_EXACT 0 /:MIDDLEWARE 5 /');
+	t.is(await simulate('GET', '/', false), 'MIDDLEWARE -5 /:MIDDLEWARE 0 /:MIDDLEWARE_EXACT 0 /:MIDDLEWARE 5 /:MIDDLEWARE 10 /');
 });
 
 test.serial('routes through special methods in order', async (t) => {

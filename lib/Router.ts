@@ -48,7 +48,7 @@ export class RouterNodeData<StateT = DefaultState, ContextT = DefaultContext> {
 		if (!methodStages) return;
 
 		// Flatten middleware arrays of all the stages into a single array
-		const orderedMiddleware = [...methodStages.keys()].sort().reduce((acc, key) => {
+		const orderedMiddleware = [...methodStages.keys()].sort((a, b) => a - b).reduce((acc, key) => {
 			acc.push(...methodStages.get(key)!);
 			return acc;
 		}, [] as Middleware<StateT, ContextT>[]);
@@ -79,7 +79,7 @@ export class RouterNodeData<StateT = DefaultState, ContextT = DefaultContext> {
 		const allStages = [...middlewareStages.keys(), ...exactMiddlewareStages.keys()]
 			// Remove duplicates
 			.filter((item, index, arr) => arr.indexOf(item) === index)
-			.sort();
+			.sort((a, b) => a - b);
 
 		// Create an array containing middleware and exact middleware, sorted according to their respective stages
 		this.orderedMiddlewareForExact = allStages.reduce((acc, stage) => {
