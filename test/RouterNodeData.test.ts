@@ -9,51 +9,31 @@ const middleware3 = () => {};
 test('should allow adding and retrieving middleware for different methods without conflicting', (t) => {
 	const nodeData = new RouterNodeData();
 
-	nodeData.addMiddleware('GET', 0, middleware1, middleware2);
-	t.true(nodeData.middleware.has('GET'));
-	t.deepEqual([...nodeData.middleware.get('GET')!], [[0, [middleware1, middleware2]]]);
-	t.deepEqual(nodeData.getMiddlewareStage('GET', 0), [middleware1, middleware2]);
+	nodeData.getOrCreateMethodData('GET').middleware.addData(0, middleware1);
+	nodeData.getOrCreateMethodData('GET').terminators.addData(0, middleware2);
+	nodeData.getOrCreateMethodData(SpecialMethod.ALL).middleware.addData(0, middleware3);
+	nodeData.getOrCreateMethodData(SpecialMethod.ALL).terminators.addData(0, middleware1);
 
-	nodeData.addMiddleware(SpecialMethod.ALL, 0, middleware2, middleware3);
-	t.true(nodeData.middleware.has(SpecialMethod.ALL));
-	t.deepEqual([...nodeData.middleware.get(SpecialMethod.ALL)!], [[0, [middleware2, middleware3]]]);
-	t.deepEqual(nodeData.getMiddlewareStage(SpecialMethod.ALL, 0), [middleware2, middleware3]);
+	t.deepEqual(nodeData.getMethodData('GET')?.middleware.orderedData, [middleware1]);
+	t.deepEqual(nodeData.getMethodData('GET')?.terminators.orderedData, [middleware2]);
+	t.deepEqual(nodeData.getMethodData(SpecialMethod.ALL)?.middleware.orderedData, [middleware3]);
+	t.deepEqual(nodeData.getMethodData(SpecialMethod.ALL)?.terminators.orderedData, [middleware1]);
 });
 
-test('should order middleware according to stages', (t) => {
-	const nodeData = new RouterNodeData();
-
-	nodeData.addMiddleware('GET', 0, middleware1);
-	nodeData.addMiddleware('GET', 5, middleware2);
-	nodeData.addMiddleware('GET', -5, middleware3);
-	t.deepEqual([...nodeData.orderedMiddleware.get('GET')!], [middleware3, middleware1, middleware2]);
-});
-
-test('should order middleware and exact middleware together', (t) => {
-	const nodeData = new RouterNodeData();
-
-	nodeData.addMiddleware(SpecialMethod.MIDDLEWARE_EXACT, 0, middleware1);
-	nodeData.addMiddleware(SpecialMethod.MIDDLEWARE, 5, middleware2);
-	nodeData.addMiddleware(SpecialMethod.MIDDLEWARE, 0, middleware3);
-	t.deepEqual(nodeData.orderedMiddlewareForExact, [middleware3, middleware1, middleware2]);
-});
-
-test('orderMiddlewareForExact()', (t) => {
+test('getOrCreateMethodData() and getMethodData()', (t) => {
 	let nodeData = new RouterNodeData();
 
-	nodeData.addMiddleware(SpecialMethod.MIDDLEWARE_EXACT, 5, middleware1);
-	nodeData.addMiddleware(SpecialMethod.MIDDLEWARE_EXACT, 0, middleware2);
-	t.deepEqual(nodeData.orderedMiddlewareForExact, [middleware2, middleware1]);
+	const getMethodData = nodeData.getOrCreateMethodData('GET');
+	const postMethodData = nodeData.getOrCreateMethodData('POST');
 
-	nodeData = new RouterNodeData();
+	// Returns a value
+	t.truthy(getMethodData);
+	t.truthy(postMethodData);
 
-	nodeData.addMiddleware(SpecialMethod.MIDDLEWARE, 5, middleware1);
-	nodeData.addMiddleware(SpecialMethod.MIDDLEWARE, 0, middleware2);
-	t.deepEqual(nodeData.orderedMiddlewareForExact, [middleware2, middleware1]);
+	// Returns the same value
+	t.is(nodeData.getMethodData('GET'), getMethodData);
+	t.is(nodeData.getMethodData('POST'), postMethodData);
 
-	nodeData = new RouterNodeData();
-
-	t.deepEqual(nodeData.orderedMiddlewareForExact, []);
-	nodeData.orderMiddlewareForExact();
-	t.deepEqual(nodeData.orderedMiddlewareForExact, []);
+	// Returns different values for different methods
+	t.not(getMethodData, postMethodData);
 });

@@ -2,95 +2,57 @@ import {DefaultContext, DefaultState, Middleware, Next, ParameterizedContext} fr
 import compose from 'koa-compose';
 
 import {Node} from './Node';
+import {StagedArray} from './StagedArray';
 
 export enum SpecialMethod {
-	/** For middleware that gets executed for every path segment. */
+	/**
+	 * Middleware for this special method will get executed for matching path segments, as soon as they're encountered.
+	 *
+	 * Terminators will be executed at the end of the request, but only if the request path matches a node with terminators.
+	 */
 	MIDDLEWARE = 'middleware',
-	/** For middleware that gets executed only for the specific path it was assigned to. */
-	MIDDLEWARE_EXACT = 'middlewareExact',
-	/** For middleware that matches for any request method. More specific methods will be called before ones bound to `all`. */
+	/**
+	 * Middleware bound to this special method is called together with the middleware for the specific HTTP request methods.
+	 *
+	 * Terminators bound to this method are called for any HTTP request method, but only after the more specific options are exhausted.
+	 */
 	ALL = 'all',
 }
 
-export class RouterNodeData<StateT = DefaultState, ContextT = DefaultContext> {
-	middleware: Map<string, Map<number, Middleware<StateT, ContextT>[]>> = new Map();
-	orderedMiddleware: Map<string, Middleware<StateT, ContextT>[]> = new Map();
-	orderedMiddlewareForExact: Middleware<StateT, ContextT>[] = [];
+export class MethodData<D> {
+	middleware: StagedArray<D> = new StagedArray();
+	terminators: StagedArray<D> = new StagedArray();
+}
 
-	getMiddlewareStage(method: string, stage: number): Middleware<StateT, ContextT>[] {
-		let methodStages = this.middleware.get(method);
+export class RouterNodeData<StateT, ContextT> {
+	methodData: Map<string, MethodData<Middleware<StateT, ContextT>>> = new Map();
+
+	getOrCreateMethodData(method: string): MethodData<Middleware<StateT, ContextT>> {
+		let methodStages = this.methodData.get(method);
 
 		if (!methodStages) {
-			methodStages = new Map();
-			this.middleware.set(method, methodStages);
+			methodStages = new MethodData<Middleware<StateT, ContextT>>();
+			this.methodData.set(method, methodStages);
 		}
 
-		let stageArray = methodStages.get(stage);
-		if (stageArray) return stageArray;
-
-		stageArray = [];
-		methodStages.set(stage, stageArray);
-		return stageArray;
+		return methodStages;
 	}
 
-	addMiddleware(method: string, stage: number, ...middleware: Middleware<StateT, ContextT>[]): void {
-		const stageArray = this.getMiddlewareStage(method, stage);
-
-		stageArray.push(...middleware);
-
-		this.orderMiddleware(method);
-	}
-
-	orderMiddleware(method: string): void {
-		const methodStages = this.middleware.get(method);
-
-		// The method doesn't have any middleware registered - do nothing
-		if (!methodStages) return;
-
-		// Flatten middleware arrays of all the stages into a single array
-		const orderedMiddleware = [...methodStages.keys()].sort((a, b) => a - b).reduce((acc, key) => {
-			acc.push(...methodStages.get(key)!);
-			return acc;
-		}, [] as Middleware<StateT, ContextT>[]);
-
-		this.orderedMiddleware.set(method, orderedMiddleware);
-
-		if (method === SpecialMethod.MIDDLEWARE || method === SpecialMethod.MIDDLEWARE_EXACT) {
-			this.orderMiddlewareForExact();
-		}
-	}
-
-	orderMiddlewareForExact(): void {
-		const middlewareStages = this.middleware.get(SpecialMethod.MIDDLEWARE);
-		const exactMiddlewareStages = this.middleware.get(SpecialMethod.MIDDLEWARE_EXACT);
-
-		// If there's no middleware for either, just use the ordered middleware for the other
-		if (!middlewareStages && !exactMiddlewareStages) {
-			this.orderedMiddlewareForExact = [];
-			return;
-		} else if (!middlewareStages) {
-			this.orderedMiddlewareForExact = this.orderedMiddleware.get(SpecialMethod.MIDDLEWARE_EXACT)!.slice();
-			return;
-		} else if (!exactMiddlewareStages) {
-			this.orderedMiddlewareForExact = this.orderedMiddleware.get(SpecialMethod.MIDDLEWARE)!.slice();
-			return;
-		}
-
-		const allStages = [...middlewareStages.keys(), ...exactMiddlewareStages.keys()]
-			// Remove duplicates
-			.filter((item, index, arr) => arr.indexOf(item) === index)
-			.sort((a, b) => a - b);
-
-		// Create an array containing middleware and exact middleware, sorted according to their respective stages
-		this.orderedMiddlewareForExact = allStages.reduce((acc, stage) => {
-			acc.push(...(middlewareStages.get(stage)?.values() || []));
-			acc.push(...(exactMiddlewareStages.get(stage)?.values() || []));
-			return acc;
-		}, [] as Middleware<StateT, ContextT>[]);
+	getMethodData(method: string): MethodData<Middleware<StateT, ContextT>> | undefined {
+		return this.methodData.get(method);
 	}
 
 	toString(): string {
-		return `${this.middleware.size} stages. middleware: ${[...this.orderedMiddleware].map(([method, middleware]) => `${middleware.length} ${method}`).join(', ')}`;
+		return `methods (${this.methodData.size}): ${[...this.methodData.entries()].map(([method, data]) => [
+			'\x1b[1m', // bold
+			method,
+			'\x1b[22m {', // normal intensity
+			[
+				data.middleware.length === 0 ? null : `middleware=${data.middleware.length}`,
+				data.terminators.length === 0 ? null : `terminators=${data.terminators.length}`,
+			].filter((v) => v).join(', '),
+			'}'
+		].join('')).join(', ')}`;
 	}
 }
 
@@ -129,7 +91,15 @@ export class Router<StateT = DefaultState, ContextT = DefaultContext> {
 
 		const node = this.rootNode.findOrCreateNode(path);
 
-		node.data.addMiddleware(method, stage, ...middleware);
+		node.data.getOrCreateMethodData(method).middleware.addData(stage, ...middleware);
+	}
+
+	addTerminator(method: string, path: string, stage: number, ...middleware: Middleware<StateT, ContextT>[]): void {
+		if (path.length < 0 || path[0] !== '/') throw new Error('Paths must start with "/"');
+
+		const node = this.rootNode.findOrCreateNode(path);
+
+		node.data.getOrCreateMethodData(method).terminators.addData(stage, ...middleware);
 	}
 
 	middleware(): Middleware<StateT, ContextT> {
@@ -151,6 +121,8 @@ export class Router<StateT = DefaultState, ContextT = DefaultContext> {
 			next: nodeIterator.next(),
 		};
 		let runNode: this['rootNode'] | null = null;
+		// FIXME: these will be lost when going into another router. what do? (pass them through to that routers stuff? make it more fireproof by putting it in ctx/ctx.state?)
+		let terminatorMiddleware: StagedArray<Middleware<StateT, ContextT>>[] = [];
 
 		async function nextNode(): Promise<void> {
 			// We reached the end of the chain, but nextNode was called. Go to the next middleware in the parent stack.
@@ -162,9 +134,8 @@ export class Router<StateT = DefaultState, ContextT = DefaultContext> {
 			const currentNode = result.current.value.node;
 			const remainingPath = result.current.value.remainingPath;
 
-			if (result.next.done) {
-				runNode = currentNode;
-			} else if (currentNode.segment.endsWith('/') || result.next.value.node.segment.startsWith('/')) {
+			// Determine if this node is on a path segment boundary
+			if (result.next.done || (currentNode.segment.endsWith('/') || result.next.value.node.segment.startsWith('/'))) {
 				runNode = currentNode;
 			}
 
@@ -172,29 +143,63 @@ export class Router<StateT = DefaultState, ContextT = DefaultContext> {
 				// The node is final if there are no nodes to follow and if no path remains (or if strict slashes are disabled, if only a slash remains)
 				if (result.next.done && (remainingPath.length === 0 || (!router.strictSlashes && remainingPath === '/'))) {
 					// Run node as the final node
-					const matchingMiddleware = runNode.data.orderedMiddlewareForExact.slice();
+					// FIXME: make sure that clients can't just send in `middleware` or another literal, and that actual methods are never lowercased. possibly switch to symbols for special methods
+					let methodData = runNode.data.getMethodData(ctx.method);
+					let headData: typeof methodData;
 
-					const middlewareForMethod = runNode.data.orderedMiddleware.get(ctx.method);
-					if (middlewareForMethod) matchingMiddleware.push(...middlewareForMethod);
-
-					if (ctx.method === 'HEAD') {
-						const middlewareForGet = runNode.data.orderedMiddleware.get('GET');
-						if (middlewareForGet) matchingMiddleware.push(...middlewareForGet);
+					if (ctx.method === 'HEAD' && (methodData?.terminators.length || 0) === 0) {
+						// If the method is HEAD but it has no terminators, use the GET terminators instead. If any middleware exists, it should still be executed before the GET middleware
+						headData = methodData;
+						methodData = runNode.data.getMethodData('GET');
 					}
 
-					const middlewareForAll = runNode.data.orderedMiddleware.get(SpecialMethod.ALL);
-					if (middlewareForAll) matchingMiddleware.push(...middlewareForAll);
+					const allMethodData = runNode.data.getMethodData(SpecialMethod.ALL);
+					const hasTerminators = (methodData?.terminators.length || 0) > 0 || (allMethodData?.terminators.length || 0) > 0;
 
-					runNode = null;
-					return compose(matchingMiddleware)(ctx, next);
+					// If the method has no terminators, fall through and handle this node like any other middleware node
+					if (hasTerminators) {
+						// Stores StagedArrays containing middleware to run. The order matters, as it determines middleware order within a stage.
+						const matchingMiddlewareSAs: StagedArray<Middleware<StateT, ContextT>>[] = [];
+
+						// Normal middleware always goes first
+						const middlewareData = runNode.data.getMethodData(SpecialMethod.MIDDLEWARE);
+						if (middlewareData && middlewareData.middleware.length > 0) matchingMiddlewareSAs.push(middlewareData.middleware);
+
+						// Terminator middleware collected through the different nodes goes next
+						matchingMiddlewareSAs.push(...terminatorMiddleware);
+
+						// Followed by terminator middleware for this node
+						if (middlewareData && middlewareData.terminators.length > 0) matchingMiddlewareSAs.push(middlewareData.terminators);
+
+						// If we are overriding terminators of HEAD with GET, try to still include the HEAD middleware
+						if (headData && headData.middleware.length > 0) matchingMiddlewareSAs.push(headData.middleware);
+
+						// Next, this method's middleware
+						if (methodData && methodData.middleware.length > 0) matchingMiddlewareSAs.push(methodData.middleware);
+
+						// And finally middleware for all methods on this path
+						if (allMethodData && allMethodData.middleware.length > 0) matchingMiddlewareSAs.push(allMethodData.middleware);
+
+						// Sort all the middleware together
+						const matchingMiddleware = StagedArray.sort(matchingMiddlewareSAs);
+
+						// Append the appropriate terminator middleware at the end of the sorted array
+						if (methodData) matchingMiddleware.push(...methodData.terminators.orderedData);
+						if (allMethodData) matchingMiddleware.push(...allMethodData.terminators.orderedData);
+
+						runNode = null;
+						return compose(matchingMiddleware)(ctx, next);
+					}
 				}
 
 				// Run node as middleware only
-				const middleware = runNode.data.orderedMiddleware.get(SpecialMethod.MIDDLEWARE);
+				const middlewareData = runNode.data.getMethodData(SpecialMethod.MIDDLEWARE);
 				runNode = null;
 
-				if (middleware) {
-					return compose(middleware)(ctx, nextNode);
+				if (middlewareData) {
+					if (middlewareData.terminators.length > 0) terminatorMiddleware.push(middlewareData.terminators);
+
+					return compose(middlewareData.middleware.orderedData)(ctx, nextNode);
 				}
 			}
 
@@ -204,6 +209,7 @@ export class Router<StateT = DefaultState, ContextT = DefaultContext> {
 		await nextNode();
 	}
 
+	// TODO: should omitting the path be an option?
 	use(path: string, ...middleware: Middleware<StateT, ContextT>[]): this;
 	use(path: string, stage: number, ...middleware: Middleware<StateT, ContextT>[]): this;
 	use(path: string, stage: number | Middleware<StateT, ContextT>, ...middleware: Middleware<StateT, ContextT>[]): this {
@@ -215,7 +221,7 @@ export class Router<StateT = DefaultState, ContextT = DefaultContext> {
 			return this;
 		}
 
-		this.addMiddleware(SpecialMethod.MIDDLEWARE_EXACT, path, decidedStage, ...combinedMiddleware);
+		this.addTerminator(SpecialMethod.MIDDLEWARE, path, decidedStage, ...combinedMiddleware);
 		return this;
 	}
 
@@ -225,8 +231,8 @@ export class Router<StateT = DefaultState, ContextT = DefaultContext> {
 
 		if (combinedMiddleware.length === 0) throw new Error('No middleware provided');
 
-		if (combinedMiddleware.length > 1) this.addMiddleware(SpecialMethod.MIDDLEWARE_EXACT, path, decidedStage, ...combinedMiddleware.slice(0, combinedMiddleware.length - 1));
-		this.addMiddleware(method, path, decidedStage, combinedMiddleware[combinedMiddleware.length - 1]);
+		if (combinedMiddleware.length > 1) this.addMiddleware(method, path, decidedStage, ...combinedMiddleware.slice(0, combinedMiddleware.length - 1));
+		this.addTerminator(method, path, decidedStage, combinedMiddleware[combinedMiddleware.length - 1]);
 
 		return this;
 	}

@@ -42,21 +42,23 @@ test.beforeEach(() => {
 
 test.serial('routes through the correct middleware', async (t) => {
 	router.addMiddleware(SpecialMethod.MIDDLEWARE, '/api', 0, append('MIDDLEWARE 0 /api'));
-	router.addMiddleware('GET', '/api/user', 0, append('GET 0 /api/user', true));
-	router.addMiddleware('GET', '/about', 0, append('GET 0 /about', true));
+	router.addMiddleware('GET', '/about', 0, append('GET 0 /about'));
+	router.addTerminator('GET', '/about', 0, append('GET.T 0 /about', true));
+	router.addMiddleware('GET', '/api/user', 0, append('GET 0 /api/user'));
+	router.addTerminator('GET', '/api/user', 0, append('GET.T 0 /api/user', true));
 	router.addMiddleware(SpecialMethod.MIDDLEWARE, '/', 0, append('MIDDLEWARE 0 /'));
-	router.addMiddleware(SpecialMethod.MIDDLEWARE_EXACT, '/', 0, append('MIDDLEWARE_EXACT 0 /'));
+	router.addTerminator(SpecialMethod.MIDDLEWARE, '/', 0, append('MIDDLEWARE.T 0 /'));
 
-	t.is(await simulate('GET', '/', false), 'MIDDLEWARE 0 /:MIDDLEWARE_EXACT 0 /');
-	t.is(await simulate('GET', '/api/user'), 'MIDDLEWARE 0 /:MIDDLEWARE 0 /api:GET 0 /api/user');
-	t.is(await simulate('GET', '/about'), 'MIDDLEWARE 0 /:GET 0 /about');
+	t.is(await simulate('GET', '/', false), 'MIDDLEWARE 0 /');
+	t.is(await simulate('GET', '/api/user'), 'MIDDLEWARE 0 /:MIDDLEWARE 0 /api:MIDDLEWARE.T 0 /:GET 0 /api/user:GET.T 0 /api/user');
+	t.is(await simulate('GET', '/about'), 'MIDDLEWARE 0 /:MIDDLEWARE.T 0 /:GET 0 /about:GET.T 0 /about');
 	t.is(await simulate('GET', '/wrong', false), 'MIDDLEWARE 0 /');
 });
 
-test.serial('routes to the correct path', async (t) => {
-	router.addMiddleware('GET', '/api/user', 0, append('GET 0 /api/user', true));
-	router.addMiddleware('GET', '/about', 0, append('GET 0 /about', true));
-	router.addMiddleware('GET', '/home', 0, append('GET 0 /home', true));
+test.serial('routes to the correct terminator based on path', async (t) => {
+	router.addTerminator('GET', '/api/user', 0, append('GET 0 /api/user', true));
+	router.addTerminator('GET', '/about', 0, append('GET 0 /about', true));
+	router.addTerminator('GET', '/home', 0, append('GET 0 /home', true));
 
 	t.is(await simulate('GET', '/api/user'), 'GET 0 /api/user');
 	t.is(await simulate('GET', '/about'), 'GET 0 /about');
@@ -64,143 +66,177 @@ test.serial('routes to the correct path', async (t) => {
 	t.is(await simulate('GET', '/wrong', false), undefined);
 });
 
-test.serial('routes to the correct method', async (t) => {
-	router.addMiddleware('GET', '/api/user', 0, append('GET 0 /api/user', true));
-	router.addMiddleware('POST', '/api/user', 0, append('POST 0 /api/user', true));
-	router.addMiddleware('GET', '/about', 0, append('GET 0 /about', true));
+test.serial('calling next() should fall through to the next terminator', async (t) => {
+	router.addTerminator('GET', '/', 0, append('GET.T1 0 /'), append('GET.T2 0 /'));
+	router.addTerminator(SpecialMethod.ALL, '/', 0, append('ALL.T1 0 /'), append('ALL.T2 0 /', true));
 
-	t.is(await simulate('GET', '/api/user'), 'GET 0 /api/user');
-	t.is(await simulate('POST', '/api/user'), 'POST 0 /api/user');
-	t.is(await simulate('GET', '/about'), 'GET 0 /about');
+	t.is(await simulate('GET', '/'), 'GET.T1 0 /:GET.T2 0 /:ALL.T1 0 /:ALL.T2 0 /');
+	t.is(await simulate('POST', '/'), 'ALL.T1 0 /:ALL.T2 0 /');
+});
+
+test.serial('terminators should not be called unless next() is called', async (t) => {
+	router.addTerminator('GET', '/', 0, append('GET.T1 0 /'), append('GET.T2 0 /', true), append('GET.T3 0 /', true));
+	router.addTerminator(SpecialMethod.ALL, '/', 0, append('ALL.T1 0 /'), append('ALL.T2 0 /', true), append('ALL.T3 0 /', true));
+
+	t.is(await simulate('GET', '/'), 'GET.T1 0 /:GET.T2 0 /');
+	t.is(await simulate('POST', '/'), 'ALL.T1 0 /:ALL.T2 0 /');
+});
+
+test.serial('routes to the correct method terminator based on path', async (t) => {
+	router.addTerminator('GET', '/api/user', 0, append('GET.T 0 /api/user', true));
+	router.addTerminator('POST', '/api/user', 0, append('POST.T 0 /api/user', true));
+	router.addTerminator('GET', '/about', 0, append('GET.T 0 /about', true));
+
+	t.is(await simulate('GET', '/api/user'), 'GET.T 0 /api/user');
+	t.is(await simulate('POST', '/api/user'), 'POST.T 0 /api/user');
+	t.is(await simulate('GET', '/about'), 'GET.T 0 /about');
 	t.is(await simulate('POST', '/about', false), undefined);
 	t.is(await simulate('GET', '/wrong', false), undefined);
 });
 
-test.serial('routes according to stage order', async (t) => {
+test.serial('routes through middleware according to stage order', async (t) => {
 	router.addMiddleware(SpecialMethod.MIDDLEWARE, '/', 0, append('MIDDLEWARE 0 /'));
 	router.addMiddleware(SpecialMethod.MIDDLEWARE, '/', 10, append('MIDDLEWARE 10 /'));
 	router.addMiddleware(SpecialMethod.MIDDLEWARE, '/', -5, append('MIDDLEWARE -5 /'));
 	router.addMiddleware(SpecialMethod.MIDDLEWARE, '/', 5, append('MIDDLEWARE 5 /'));
-	router.addMiddleware(SpecialMethod.MIDDLEWARE_EXACT, '/', 0, append('MIDDLEWARE_EXACT 0 /'));
+	router.addTerminator(SpecialMethod.MIDDLEWARE, '/', 2, append('MIDDLEWARE.T 2 /'));
+	router.addMiddleware('GET', '/', -2, append('GET -2 /'));
+	router.addMiddleware(SpecialMethod.ALL, '/', -3, append('ALL -3 /'));
+	// Need to add a method terminator on the final node for all middleware to be ran
+	router.addTerminator(SpecialMethod.ALL, '/', 0, append('ALL 0 /', true));
 
-	t.is(await simulate('GET', '/', false), 'MIDDLEWARE -5 /:MIDDLEWARE 0 /:MIDDLEWARE_EXACT 0 /:MIDDLEWARE 5 /:MIDDLEWARE 10 /');
+	t.is(await simulate('GET', '/'), 'MIDDLEWARE -5 /:ALL -3 /:GET -2 /:MIDDLEWARE 0 /:MIDDLEWARE.T 2 /:MIDDLEWARE 5 /:MIDDLEWARE 10 /:ALL 0 /');
 });
 
-test.serial('routes through special methods in order', async (t) => {
+test.serial('routes through terminators in order', async (t) => {
 	router.addMiddleware(SpecialMethod.MIDDLEWARE, '/', 0, append('MIDDLEWARE 0 /'));
-	router.addMiddleware(SpecialMethod.MIDDLEWARE_EXACT, '/', 0, append('MIDDLEWARE_EXACT 0 /'));
-	router.addMiddleware('GET', '/', 0, append('GET 0 /'));
-	router.addMiddleware(SpecialMethod.ALL, '/', 0, append('ANY 0 /'));
+	router.addTerminator('GET', '/', 0, append('GET.T 0 /'));
+	router.addTerminator(SpecialMethod.ALL, '/', 0, append('ALL.T 0 /'));
 
-	t.is(await simulate('GET', '/', false), 'MIDDLEWARE 0 /:MIDDLEWARE_EXACT 0 /:GET 0 /:ANY 0 /');
+	t.is(await simulate('GET', '/', false), 'MIDDLEWARE 0 /:GET.T 0 /:ALL.T 0 /');
 });
 
 test.serial('should recognize significance of trailing slashes in routes', async (t) => {
 	router.addMiddleware(SpecialMethod.MIDDLEWARE, '/api', 0, append('MIDDLEWARE 0 /api'));
 	router.addMiddleware(SpecialMethod.MIDDLEWARE, '/api/', 0, append('MIDDLEWARE 0 /api/'));
-	router.addMiddleware('GET', '/api/user', 0, append('GET 0 /api/user', true));
+	router.addTerminator('GET', '/api/user', 0, append('GET.T 0 /api/user', true));
 
 	t.is(await simulate('GET', '/api', false), 'MIDDLEWARE 0 /api');
 	t.is(await simulate('GET', '/api/', false), 'MIDDLEWARE 0 /api:MIDDLEWARE 0 /api/');
-	t.is(await simulate('GET', '/api/user'), 'MIDDLEWARE 0 /api:MIDDLEWARE 0 /api/:GET 0 /api/user');
+	t.is(await simulate('GET', '/api/user'), 'MIDDLEWARE 0 /api:MIDDLEWARE 0 /api/:GET.T 0 /api/user');
 });
 
 test.serial('should respect both values for the strictSlashes option', async (t) => {
-	router.addMiddleware('GET', '/about', 0, append('GET 0 /about', true));
-	router.addMiddleware('GET', '/shop/', 0, append('GET 0 /shop/', true));
+	router.addTerminator('GET', '/about', 0, append('GET.T 0 /about', true));
+	router.addTerminator('GET', '/shop/', 0, append('GET.T 0 /shop/', true));
 
-	t.is(await simulate('GET', '/about'), 'GET 0 /about');
-	t.is(await simulate('GET', '/about/'), 'GET 0 /about');
+	t.is(await simulate('GET', '/about'), 'GET.T 0 /about');
+	t.is(await simulate('GET', '/about/'), 'GET.T 0 /about');
 	t.is(await simulate('GET', '/shop', false), undefined);
-	t.is(await simulate('GET', '/shop/'), 'GET 0 /shop/');
+	t.is(await simulate('GET', '/shop/'), 'GET.T 0 /shop/');
 
 	router = new Router({
 		strictSlashes: true,
 	});
 
-	router.addMiddleware('GET', '/about', 0, append('GET 0 /about', true));
-	router.addMiddleware('GET', '/shop/', 0, append('GET 0 /shop/', true));
+	router.addTerminator('GET', '/about', 0, append('GET.T 0 /about', true));
+	router.addTerminator('GET', '/shop/', 0, append('GET.T 0 /shop/', true));
 
-	t.is(await simulate('GET', '/about'), 'GET 0 /about');
+	t.is(await simulate('GET', '/about'), 'GET.T 0 /about');
 	t.is(await simulate('GET', '/about/', false), undefined);
 	t.is(await simulate('GET', '/shop', false), undefined);
-	t.is(await simulate('GET', '/shop/'), 'GET 0 /shop/');
+	t.is(await simulate('GET', '/shop/'), 'GET.T 0 /shop/');
 });
 
-test.serial('method helpers should add middleware', async (t) => {
-	router.all('/all', append('ALL 0 /all', true));
-	router.connect('/', append('CONNECT 0 /', true));
-	router.delete('/', append('DELETE 0 /', true));
-	router.del('/alias/del', append('DEL 0 /', true));
-	router.get('/', append('GET 0 /', true));
-	router.head('/', append('HEAD 0 /', true));
-	router.options('/', append('OPTIONS 0 /', true));
-	router.patch('/', append('PATCH 0 /', true));
-	router.post('/', append('POST 0 /', true));
-	router.put('/', append('PUT 0 /', true));
-	router.trace('/', append('TRACE 0 /', true));
+test.serial('method helpers should add middleware and terminators', async (t) => {
+	router.all('/all', append('ALL 0 /all'), append('ALL.T 0 /all', true));
+	router.connect('/', append('CONNECT 0 /'), append('CONNECT.T 0 /', true));
+	router.delete('/', append('DELETE 0 /'), append('DELETE.T 0 /', true));
+	router.del('/alias/del', append('DEL 0 /'), append('DEL.T 0 /', true));
+	router.get('/', append('GET 0 /'), append('GET.T 0 /', true));
+	router.head('/', append('HEAD 0 /'), append('HEAD.T 0 /', true));
+	router.options('/', append('OPTIONS 0 /'), append('OPTIONS.T 0 /', true));
+	router.patch('/', append('PATCH 0 /'), append('PATCH.T 0 /', true));
+	router.post('/', append('POST 0 /'), append('POST.T 0 /', true));
+	router.put('/', append('PUT 0 /'), append('PUT.T 0 /', true));
+	router.trace('/', append('TRACE 0 /'), append('TRACE.T 0 /', true));
 
-	t.is(await simulate('GET', '/all'), 'ALL 0 /all');
-	t.is(await simulate('POST', '/all'), 'ALL 0 /all');
-	t.is(await simulate('CONNECT', '/'), 'CONNECT 0 /');
-	t.is(await simulate('DELETE', '/'), 'DELETE 0 /');
-	t.is(await simulate('DELETE', '/alias/del'), 'DEL 0 /');
-	t.is(await simulate('GET', '/'), 'GET 0 /');
-	t.is(await simulate('HEAD', '/'), 'HEAD 0 /');
-	t.is(await simulate('OPTIONS', '/'), 'OPTIONS 0 /');
-	t.is(await simulate('PATCH', '/'), 'PATCH 0 /');
-	t.is(await simulate('POST', '/'), 'POST 0 /');
-	t.is(await simulate('PUT', '/'), 'PUT 0 /');
-	t.is(await simulate('TRACE', '/'), 'TRACE 0 /');
+	t.is(await simulate('GET', '/all'), 'ALL 0 /all:ALL.T 0 /all');
+	t.is(await simulate('POST', '/all'), 'ALL 0 /all:ALL.T 0 /all');
+	t.is(await simulate('CONNECT', '/'), 'CONNECT 0 /:CONNECT.T 0 /');
+	t.is(await simulate('DELETE', '/'), 'DELETE 0 /:DELETE.T 0 /');
+	t.is(await simulate('DELETE', '/alias/del'), 'DEL 0 /:DEL.T 0 /');
+	t.is(await simulate('GET', '/'), 'GET 0 /:GET.T 0 /');
+	t.is(await simulate('HEAD', '/'), 'HEAD 0 /:HEAD.T 0 /');
+	t.is(await simulate('OPTIONS', '/'), 'OPTIONS 0 /:OPTIONS.T 0 /');
+	t.is(await simulate('PATCH', '/'), 'PATCH 0 /:PATCH.T 0 /');
+	t.is(await simulate('POST', '/'), 'POST 0 /:POST.T 0 /');
+	t.is(await simulate('PUT', '/'), 'PUT 0 /:PUT.T 0 /');
+	t.is(await simulate('TRACE', '/'), 'TRACE 0 /:TRACE.T 0 /');
 });
 
 test.serial('method helpers should add middleware with correct stages', async (t) => {
-	router.get('/', append('MIDDLEWARE_EXACT 0 /'), append('GET 0 /', true));
+	router.get('/', append('GET 0 /'), append('GET.T 0 /', true));
 	router.use('/*', -5, append('MIDDLEWARE -5 /*'));
 	router.use('/*', 5, append('MIDDLEWARE 5 /*'));
+	// TODO: use has a different implementation than other helpers. test stages support appropriately for both
 
-	t.is(await simulate('GET', '/'), 'MIDDLEWARE -5 /*:MIDDLEWARE_EXACT 0 /:MIDDLEWARE 5 /*:GET 0 /');
+	t.is(await simulate('GET', '/'), 'MIDDLEWARE -5 /*:GET 0 /:MIDDLEWARE 5 /*:GET.T 0 /');
 });
 
 test.serial('use() should add middleware and handle the wildcard', async (t) => {
-	router.use('/', append('USE 0 /'));
+	router.use('/', append('USE.T 0 /'));
 	router.use('/*', append('USE 0 /*'));
 	router.use('/test*', append('USE 0 /test*'));
-	router.get('/', append('GET 0 /', true));
-	router.get('/test', append('GET 0 /test', true));
+	router.get('/', append('GET.T 0 /', true));
+	router.get('/test', append('GET.T 0 /test', true));
 
-	t.is(await simulate('GET', '/'), 'USE 0 /*:USE 0 /:GET 0 /');
-	t.is(await simulate('GET', '/test'), 'USE 0 /*:USE 0 /test*:GET 0 /test');
+	t.is(await simulate('GET', '/'), 'USE 0 /*:USE.T 0 /:GET.T 0 /');
+	t.is(await simulate('GET', '/test'), 'USE 0 /*:USE 0 /test*:USE.T 0 /:GET.T 0 /test');
 	t.is(await simulate('GET', '/test/hello', false), 'USE 0 /*:USE 0 /test*');
 });
 
-test.serial('use(\'/*\') (with a wildcard) should attach all middleware as not exact', async (t) => {
+test.serial('use(\'/*\') (with a wildcard) should attach all middleware as immediate middleware', async (t) => {
 	router.use('/*', append('USE1 0 /*'), append('USE2 0 /*'));
-	router.get('/test', append('GET 0 /test', true));
+	router.get('/test', append('GET.T 0 /test', true));
 
-	t.is(await simulate('GET', '/test'), 'USE1 0 /*:USE2 0 /*:GET 0 /test');
+	t.is(await simulate('GET', '/test'), 'USE1 0 /*:USE2 0 /*:GET.T 0 /test');
+	t.is(await simulate('GET', '/', false), 'USE1 0 /*:USE2 0 /*');
 });
 
-test.serial('use(\'/\') (without a wildcard) should attach all middleware as exact', async (t) => {
-	router.use('/', append('USE1 0 /'), append('USE2 0 /'));
-	router.get('/test', append('GET 0 /test', true));
+test.serial('use(\'/\') (without a wildcard) should attach all middleware as terminator middleware', async (t) => {
+	router.use('/', append('USE1.T 0 /'), append('USE2.T 0 /'));
+	router.get('/test', append('GET.T 0 /test', true));
 
-	t.is(await simulate('GET', '/test'), 'GET 0 /test');
-	t.is(await simulate('GET', '/', false), 'USE1 0 /:USE2 0 /');
+	t.is(await simulate('GET', '/test'), 'USE1.T 0 /:USE2.T 0 /:GET.T 0 /test');
+	t.is(await simulate('GET', '/', false), undefined);
 });
 
-test.serial('HEAD requests should be redirected to GET if needed', async (t) => {
-	router.get('/home', append('GET 0 /home', true));
-	router.head('/api', append('HEAD 0 /api', true));
-	router.get('/api', append('GET 0 /api', true));
-	router.head('/shop', append('HEAD 0 /shop'));
-	router.get('/shop', append('GET 0 /shop', true));
+test.serial('HEAD requests should use GET terminators if no HEAD terminators exist', async (t) => {
+	router.get('/home', append('GET.T 0 /home', true));
+	router.head('/api', append('HEAD.T 0 /api', true));
+	router.get('/api', append('GET.T 0 /api', true));
 
-	t.is(await simulate('HEAD', '/home'), 'GET 0 /home');
-	t.is(await simulate('HEAD', '/api'), 'HEAD 0 /api');
-	t.is(await simulate('GET', '/api'), 'GET 0 /api');
-	t.is(await simulate('HEAD', '/shop'), 'HEAD 0 /shop:GET 0 /shop');
-	t.is(await simulate('GET', '/shop'), 'GET 0 /shop');
+	t.is(await simulate('HEAD', '/home'), 'GET.T 0 /home');
+	t.is(await simulate('GET', '/home'), 'GET.T 0 /home');
+	t.is(await simulate('HEAD', '/api'), 'HEAD.T 0 /api');
+	t.is(await simulate('GET', '/api'), 'GET.T 0 /api');
+});
+
+test.serial('HEAD requests should not use GET terminators if HEAD terminators are available, even if those call next', async (t) => {
+	router.head('/shop', append('HEAD.T 0 /shop'));
+	router.get('/shop', append('GET.T 0 /shop', true));
+
+	t.is(await simulate('HEAD', '/shop', false), 'HEAD.T 0 /shop');
+	t.is(await simulate('GET', '/shop'), 'GET.T 0 /shop');
+});
+
+test.serial('HEAD middleware should be called for HEAD requests using GET terminators', async (t) => {
+	router.addMiddleware('HEAD', '/home', 0, append('HEAD 0 /home'));
+	router.get('/home', append('GET 0 /home'), append('GET.T 0 /home', true));
+
+	t.is(await simulate('HEAD', '/home'), 'HEAD 0 /home:GET 0 /home:GET.T 0 /home');
+	t.is(await simulate('GET', '/home'), 'GET 0 /home:GET.T 0 /home');
 });
 
 test('supports custom context and state types', async (t) => {
