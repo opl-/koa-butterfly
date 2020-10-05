@@ -7,7 +7,7 @@ let router = new Router();
 
 type MethodsWithHelpers = 'CONNECT' | 'DELETE' | 'GET' | 'HEAD' | 'OPTIONS' | 'PATCH' | 'POST' | 'PUT' | 'TRACE';
 
-async function simulate(method: MethodsWithHelpers, path: string, shouldMatch = true): Promise<string | undefined> {
+async function simulate(method: MethodsWithHelpers, path: string, shouldMatch = true): Promise<string | {message: string; body?: string;} | undefined> {
 	const context = {
 		path,
 		method,
@@ -21,8 +21,14 @@ async function simulate(method: MethodsWithHelpers, path: string, shouldMatch = 
 		matched = false;
 	});
 
-	if (shouldMatch && !matched) throw new Error('Router did not match when it should');
-	if (!shouldMatch && matched) throw new Error('Router matched when it should not');
+	if (shouldMatch && !matched) return {
+		message: 'Router did not match when it should',
+		body: context.body,
+	};
+	if (!shouldMatch && matched) return {
+		message: 'Router matched when it should not',
+		body: context.body,
+	};
 
 	return context.body;
 };
