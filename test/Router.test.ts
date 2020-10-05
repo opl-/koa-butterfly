@@ -239,6 +239,47 @@ test.serial('HEAD middleware should be called for HEAD requests using GET termin
 	t.is(await simulate('GET', '/home'), 'GET 0 /home:GET.T 0 /home');
 });
 
+test.serial('should maintain the call stack through all middleware', async (t) => {
+	function appendTwice(str: string, last = false): Middleware {
+		return async (ctx: Context, next: Next) => {
+			ctx.body = (ctx.body ? `${ctx.body}:` : '') + str;
+	
+			if (last) return;
+
+			await next();
+
+			ctx.body = (ctx.body ? `${ctx.body}:` : '') + str;
+		};
+	}
+
+	router.addMiddleware(SpecialMethod.MIDDLEWARE, '/', 0, appendTwice('MIDDLEWARE 0 /'));
+	router.addTerminator(SpecialMethod.MIDDLEWARE, '/', 0, appendTwice('MIDDLEWARE.T 0 /'));
+	router.addMiddleware(SpecialMethod.MIDDLEWARE, '/blog', 0, appendTwice('MIDDLEWARE 0 /blog'));
+	router.addTerminator(SpecialMethod.MIDDLEWARE, '/blog', 0, appendTwice('MIDDLEWARE.T 0 /blog'));
+	router.addMiddleware('GET', '/blog', 0, appendTwice('GET 0 /blog'));
+	router.addTerminator('GET', '/blog', 0, appendTwice('GET.T 0 /blog'));
+	router.addMiddleware(SpecialMethod.ALL, '/blog', 0, appendTwice('ALL 0 /blog'));
+	router.addTerminator(SpecialMethod.ALL, '/blog', 0, appendTwice('ALL.T 0 /blog', true));
+
+	t.is(await simulate('GET', '/blog'), [
+		'MIDDLEWARE 0 /',
+		'MIDDLEWARE 0 /blog',
+		'MIDDLEWARE.T 0 /',
+		'MIDDLEWARE.T 0 /blog',
+		'GET 0 /blog',
+		'ALL 0 /blog',
+		'GET.T 0 /blog',
+		'ALL.T 0 /blog',
+		'GET.T 0 /blog',
+		'ALL 0 /blog',
+		'GET 0 /blog',
+		'MIDDLEWARE.T 0 /blog',
+		'MIDDLEWARE.T 0 /',
+		'MIDDLEWARE 0 /blog',
+		'MIDDLEWARE 0 /',
+	].join(':'));
+});
+
 test('supports custom context and state types', async (t) => {
 	function expect<T>(arg: T) {
 		void arg;
