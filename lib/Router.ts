@@ -62,6 +62,21 @@ export interface RouterOptions {
 }
 
 /**
+ * Runs any middleware provided by the given generator.
+ *
+ * If the middleware doesn't call `next()`, the generator doesn't get called again, allowing the generator to easily stop execution at any time with no extra code.
+ */
+async function middlewareGeneratorRunner<StateT, ContextT>(ctx: ParameterizedContext<StateT, ContextT>, next: Next, middlewareGenerator: AsyncGenerator<Middleware<StateT, ContextT>[]>): Promise<void> {
+	const middleware = await middlewareGenerator.next();
+
+	if (middleware.done) return next();
+
+	if (middleware.value.length === 0) await middlewareGeneratorRunner(ctx, next, middlewareGenerator);
+	else if (middleware.value.length === 1) await middleware.value[0](ctx, () => middlewareGeneratorRunner(ctx, next, middlewareGenerator));
+	else await compose(middleware.value)(ctx, () => middlewareGeneratorRunner(ctx, next, middlewareGenerator));
+}
+
+/**
  * Type that assumes that:
  * - if `next` isn't done, then `current` can't be done either,
  * - `current` is never going to be done.
@@ -111,8 +126,10 @@ export class Router<StateT = DefaultState, ContextT = DefaultContext> {
 	}
 
 	async handleNodePath(node: this['rootNode'], ctx: ParameterizedContext<StateT, ContextT>, next: Next): Promise<void> {
-		const router = this;
+		return middlewareGeneratorRunner<StateT, ContextT>(ctx, next, this.middlewareGenerator(node, ctx, next));
+	}
 
+	async *middlewareGenerator(node: this['rootNode'], ctx: ParameterizedContext<StateT, ContextT>, next: Next) {
 		let nodeIterator = node.nodeIterator(ctx.path);
 
 		let result: IteratorResultSequence<typeof nodeIterator> = {
@@ -120,11 +137,10 @@ export class Router<StateT = DefaultState, ContextT = DefaultContext> {
 			current: undefined as unknown,
 			next: nodeIterator.next(),
 		};
-		let runNode: this['rootNode'] | null = null;
 		// FIXME: these will be lost when going into another router. what do? (pass them through to that routers stuff? make it more fireproof by putting it in ctx/ctx.state?)
 		let terminatorMiddleware: StagedArray<Middleware<StateT, ContextT>>[] = [];
 
-		async function nextNode(): Promise<void> {
+		while (true) {
 			// We reached the end of the chain, but nextNode was called. Go to the next middleware in the parent stack.
 			if (result.next.done) return next();
 
@@ -136,24 +152,20 @@ export class Router<StateT = DefaultState, ContextT = DefaultContext> {
 
 			// Determine if this node is on a path segment boundary
 			if (result.next.done || (currentNode.segment.endsWith('/') || result.next.value.node.segment.startsWith('/'))) {
-				runNode = currentNode;
-			}
-
-			if (runNode) {
 				// The node is final if there are no nodes to follow and if no path remains (or if strict slashes are disabled, if only a slash remains)
-				if (result.next.done && (remainingPath.length === 0 || (!router.strictSlashes && remainingPath === '/'))) {
+				if (result.next.done && (remainingPath.length === 0 || (!this.strictSlashes && remainingPath === '/'))) {
 					// Run node as the final node
 					// FIXME: make sure that clients can't just send in `middleware` or another literal, and that actual methods are never lowercased. possibly switch to symbols for special methods
-					let methodData = runNode.data.getMethodData(ctx.method);
+					let methodData = currentNode.data.getMethodData(ctx.method);
 					let headData: typeof methodData;
 
 					if (ctx.method === 'HEAD' && (methodData?.terminators.length || 0) === 0) {
 						// If the method is HEAD but it has no terminators, use the GET terminators instead. If any middleware exists, it should still be executed before the GET middleware
 						headData = methodData;
-						methodData = runNode.data.getMethodData('GET');
+						methodData = currentNode.data.getMethodData('GET');
 					}
 
-					const allMethodData = runNode.data.getMethodData(SpecialMethod.ALL);
+					const allMethodData = currentNode.data.getMethodData(SpecialMethod.ALL);
 					const hasTerminators = (methodData?.terminators.length || 0) > 0 || (allMethodData?.terminators.length || 0) > 0;
 
 					// If the method has no terminators, fall through and handle this node like any other middleware node
@@ -162,7 +174,7 @@ export class Router<StateT = DefaultState, ContextT = DefaultContext> {
 						const matchingMiddlewareSAs: StagedArray<Middleware<StateT, ContextT>>[] = [];
 
 						// Normal middleware always goes first
-						const middlewareData = runNode.data.getMethodData(SpecialMethod.MIDDLEWARE);
+						const middlewareData = currentNode.data.getMethodData(SpecialMethod.MIDDLEWARE);
 						if (middlewareData && middlewareData.middleware.length > 0) matchingMiddlewareSAs.push(middlewareData.middleware);
 
 						// Terminator middleware collected through the different nodes goes next
@@ -180,33 +192,27 @@ export class Router<StateT = DefaultState, ContextT = DefaultContext> {
 						// And finally middleware for all methods on this path
 						if (allMethodData && allMethodData.middleware.length > 0) matchingMiddlewareSAs.push(allMethodData.middleware);
 
-						// Sort all the middleware together
-						const matchingMiddleware = StagedArray.sort(matchingMiddlewareSAs);
+						// Sort all the middleware together and run it
+						yield StagedArray.sort(matchingMiddlewareSAs);
 
-						// Append the appropriate terminator middleware at the end of the sorted array
-						if (methodData) matchingMiddleware.push(...methodData.terminators.orderedData);
-						if (allMethodData) matchingMiddleware.push(...allMethodData.terminators.orderedData);
+						// Run the appropriate terminator middleware at the end
+						if (methodData) yield methodData.terminators.orderedData;
+						if (allMethodData) yield allMethodData.terminators.orderedData;
 
-						runNode = null;
-						return compose(matchingMiddleware)(ctx, next);
+						continue;
 					}
 				}
 
 				// Run node as middleware only
-				const middlewareData = runNode.data.getMethodData(SpecialMethod.MIDDLEWARE);
-				runNode = null;
+				const middlewareData = currentNode.data.getMethodData(SpecialMethod.MIDDLEWARE);
 
 				if (middlewareData) {
 					if (middlewareData.terminators.length > 0) terminatorMiddleware.push(middlewareData.terminators);
 
-					return compose(middlewareData.middleware.orderedData)(ctx, nextNode);
+					if (middlewareData.middleware.length > 0) yield middlewareData.middleware.orderedData as any;
 				}
 			}
-
-			return nextNode();
 		}
-
-		await nextNode();
 	}
 
 	// TODO: should omitting the path be an option?
