@@ -92,6 +92,8 @@ export class Node<D> {
 	 * @param path Path of node to find
 	 * @param createIfNone If `true`, a Node will be created for the given path if one isn't found
 	 */
+	findAll(path: string, createIfNone: true): Node<D>[];
+	findAll(path: string, createIfNone?: boolean): Node<D>[] | null;
 	findAll(path: string, createIfNone = false): Node<D>[] | null {
 		let node: Node<D> | null = this;
 		const output: Node<D>[] = [node];
@@ -170,27 +172,18 @@ export class Node<D> {
 	}
 
 	/**
-	 * Returns the Node at the exact given path or `null` if one doesn't exist.
+	 * Returns the last Node at the exact given path.
+	 *
+	 * If `createIfNone` is `true`, inserts a new Node if one doesn't already exist there, then returns it.
 	 *
 	 * @param path Path of node to find
+	 * @param createIfNone If `true`, allows creation of new Nodes
 	 */
-	find(path: string): Node<D> | null {
-		const nodes = this.findAll(path);
+	find(path: string, createIfNone: true): Node<D>;
+	find(path: string, createIfNone?: boolean): Node<D> | null;
+	find(path: string, createIfNone = false): Node<D> | null {
+		const nodes = this.findAll(path, createIfNone);
 		if (!nodes) return null;
-		return nodes[nodes.length - 1];
-	}
-
-	/**
-	 * Returns the Node at the exact given path, inserting a new Node if one doesn't already exist there.
-	 *
-	 * See `Node.findAll(path, true)`.
-	 *
-	 * @param path Path of node to find
-	 */
-	findOrCreateNode(path: string): Node<D> {
-		const nodes = this.findAll(path, true);
-		/* istanbul ignore next: sanity check that should never be true */
-		if (!nodes) throw new Error(`findAll failed to find or create a new node (for ${JSON.stringify(path)})`);
 		return nodes[nodes.length - 1];
 	}
 

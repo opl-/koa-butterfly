@@ -7,13 +7,13 @@ test('should create and traverse trees', (t) => {
 
 	t.is(root.children.length, 0);
 
-	const aa = root.findOrCreateNode('/aa');
+	const aa = root.find('/aa', true);
 	t.not(aa, null);
 	t.is(root.find('/aa'), aa);
 	t.true(aa.isLeaf());
 	t.is(aa.segment, '/aa');
 
-	const ab = root.findOrCreateNode('/ab');
+	const ab = root.find('/ab', true);
 	t.not(ab, null);
 	t.is(root.find('/aa'), aa);
 	t.is(root.find('/ab'), ab);
@@ -24,7 +24,7 @@ test('should create and traverse trees', (t) => {
 	t.is(aa.segment, 'a');
 	t.is(ab.segment, 'b');
 
-	const c = root.findOrCreateNode('/c');
+	const c = root.find('/c', true);
 	t.not(c, null);
 	t.is(root.find('/aa'), aa);
 	t.is(root.find('/ab'), ab);
@@ -34,11 +34,11 @@ test('should create and traverse trees', (t) => {
 test('should work when adding longer paths', (t) => {
 	const root = new Node(() => null);
 
-	const slash = root.findOrCreateNode('/');
+	const slash = root.find('/', true);
 	t.not(slash, null);
 	t.is(root.find('/'), slash);
 
-	const a = root.findOrCreateNode('/a');
+	const a = root.find('/a', true);
 	t.not(a, null);
 	t.is(root.find('/'), slash);
 	t.is(root.find('/a'), a);
@@ -47,11 +47,11 @@ test('should work when adding longer paths', (t) => {
 test('should work when adding shorter paths', (t) => {
 	const root = new Node(() => null);
 
-	const a = root.findOrCreateNode('/a');
+	const a = root.find('/a', true);
 	t.not(a, null);
 	t.is(root.find('/a'), a);
 
-	const slash = root.findOrCreateNode('/');
+	const slash = root.find('/', true);
 	t.not(slash, null);
 	t.is(root.find('/'), slash);
 	t.is(root.find('/a'), a);
@@ -60,9 +60,9 @@ test('should work when adding shorter paths', (t) => {
 test('should work when branching with more segments left', (t) => {
 	const root = new Node(() => null);
 
-	const ab = root.findOrCreateNode('/ab');
-	const slash = root.findOrCreateNode('/');
-	const ac = root.findOrCreateNode('/ac');
+	const ab = root.find('/ab', true);
+	const slash = root.find('/', true);
+	const ac = root.find('/ac', true);
 
 	t.is(root.find('/ab'), ab);
 	t.is(root.find('/'), slash);
@@ -76,16 +76,16 @@ test('should create the data object for all child Nodes', (t) => {
 		[...node].forEach((child) => t.is(child.data, 1));
 	}
 
-	root.findOrCreateNode('/');
+	root.find('/', true);
 	checkData(root);
 
-	root.findOrCreateNode('/a');
+	root.find('/a', true);
 	checkData(root);
 
-	root.findOrCreateNode('/b');
+	root.find('/b', true);
 	checkData(root);
 
-	root.findOrCreateNode('/ab');
+	root.find('/ab', true);
 	checkData(root);
 });
 
@@ -96,23 +96,23 @@ test('should have no Nodes with an empty segment', (t) => {
 		[...node].forEach((child) => t.not(child.segment, ''));
 	}
 
-	root.findOrCreateNode('/');
+	root.find('/', true);
 	checkData(root);
 
-	root.findOrCreateNode('/a');
+	root.find('/a', true);
 	checkData(root);
 
-	root.findOrCreateNode('/b');
+	root.find('/b', true);
 	checkData(root);
 
-	root.findOrCreateNode('/ab');
+	root.find('/ab', true);
 	checkData(root);
 });
 
 test('should allow root nodes to use custom names', (t) => {
 	const root = new Node(() => null, 'The Root');
 
-	const child = root.findOrCreateNode('/');
+	const child = root.find('/', true);
 
 	t.is(root.find(''), root);
 	t.is(root.find('/'), child);
@@ -125,9 +125,9 @@ test('should allow root nodes to use custom names', (t) => {
 test('find() should return the correct nodes', (t) => {
 	const root = new Node(() => null);
 
-	const slash = root.findOrCreateNode('/');
-	const a = root.findOrCreateNode('/a');
-	const b = root.findOrCreateNode('/b');
+	const slash = root.find('/', true);
+	const a = root.find('/a', true);
+	const b = root.find('/b', true);
 
 	t.is(root.find('/'), slash);
 	t.is(root.find('/a'), a);
@@ -145,9 +145,9 @@ test('find(\'\') should return the root Node', (t) => {
 test('findAll() should return the correct nodes', (t) => {
 	const root = new Node(() => null);
 
-	const slash = root.findOrCreateNode('/');
-	const a = root.findOrCreateNode('/a');
-	const b = root.findOrCreateNode('/b');
+	const slash = root.find('/', true);
+	const a = root.find('/a', true);
+	const b = root.find('/b', true);
 
 	t.deepEqual(root.findAll(''), [root]);
 	t.deepEqual(root.findAll('/'), [root, slash]);
@@ -159,9 +159,9 @@ test('findAll() should return the correct nodes', (t) => {
 test('nodeIterator() should iterate over all nodes', (t) => {
 	const root = new Node(() => null);
 
-	const slash = root.findOrCreateNode('/');
-	const a = root.findOrCreateNode('/a');
-	const b = root.findOrCreateNode('/b');
+	const slash = root.find('/', true);
+	const a = root.find('/a', true);
+	const b = root.find('/b', true);
 
 	t.deepEqual([...root.nodeIterator('')], [{node: root, remainingPath: ''}]);
 	t.deepEqual([...root.nodeIterator('/')], [{node: root, remainingPath: '/'}, {node: slash, remainingPath: ''}]);
@@ -188,9 +188,9 @@ test('nodeIterator() should allow changing remainingPath', (t) => {
 		value: undefined,
 	} as const;
 
-	const slash = root.findOrCreateNode('/');
-	const a = root.findOrCreateNode('/a');
-	const b = root.findOrCreateNode('/b');
+	const slash = root.find('/', true);
+	const a = root.find('/a', true);
+	const b = root.find('/b', true);
 
 	// Change path right before it's matched to a valid node
 	let generator = root.nodeIterator('/a');
@@ -232,7 +232,7 @@ test('isLeaf()', (t) => {
 	const node = new Node(() => null);
 
 	t.true(node.isLeaf());
-	const childNode = node.findOrCreateNode('/a');
+	const childNode = node.find('/a', true);
 	t.false(node.isLeaf());
 	t.true(childNode.isLeaf());
 });
@@ -243,14 +243,14 @@ test('stringify()', (t) => {
 			return 'node data';
 		}
 	}));
-	node.findOrCreateNode('/test');
+	node.find('/test', true);
 
 	t.is(node.stringify(), '<root>: node data\n  /test: node data');
 
 	node = new Node(() => ({
 		toString: 'nope',
 	}));
-	node.findOrCreateNode('/test');
+	node.find('/test', true);
 
 	t.is(node.stringify(), '<root>\n  /test');
 });
@@ -259,11 +259,11 @@ test('*[Symbol.iterator]()', (t) => {
 	const root = new Node(() => null);
 
 	t.deepEqual([...root], [root]);
-	const slash = root.findOrCreateNode('/');
+	const slash = root.find('/', true);
 	t.deepEqual([...root], [root, slash]);
-	const a = root.findOrCreateNode('/a');
+	const a = root.find('/a', true);
 	t.deepEqual([...root], [root, slash, a]);
-	const b = root.findOrCreateNode('/b');
+	const b = root.find('/b', true);
 	t.deepEqual([...root], [root, slash, a, b]);
 });
 
