@@ -33,7 +33,11 @@ async function simulate(method: MethodsWithHelpers, path: string, shouldMatch = 
 	return context.body;
 };
 
+let registeredAppends: Record<string, true> = {};
 function append(str: string, last = false): Middleware {
+	if (registeredAppends[str]) throw new Error('Duplicate name for an append()');
+	registeredAppends[str] = true;
+
 	return (ctx: Context, next: Next) => {
 		ctx.body = (ctx.body ? `${ctx.body}:` : '') + str;
 
@@ -44,6 +48,7 @@ function append(str: string, last = false): Middleware {
 
 test.beforeEach(() => {
 	router = new Router();
+	registeredAppends = {};
 });
 
 test.serial('routes through the correct middleware', async (t) => {
@@ -144,6 +149,7 @@ test.serial('should respect both values for the strictSlashes option', async (t)
 	router = new Router({
 		strictSlashes: true,
 	});
+	registeredAppends = {};
 
 	router.addTerminator('GET', '/about', 0, append('GET.T 0 /about', true));
 	router.addTerminator('GET', '/shop/', 0, append('GET.T 0 /shop/', true));
