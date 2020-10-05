@@ -9,10 +9,10 @@ const middleware3 = () => {};
 test('should allow adding and retrieving middleware for different methods without conflicting', (t) => {
 	const nodeData = new RouterNodeData();
 
-	nodeData.getOrCreateMethodData('GET').middleware.addData(0, middleware1);
-	nodeData.getOrCreateMethodData('GET').terminators.addData(0, middleware2);
-	nodeData.getOrCreateMethodData(SpecialMethod.ALL).middleware.addData(0, middleware3);
-	nodeData.getOrCreateMethodData(SpecialMethod.ALL).terminators.addData(0, middleware1);
+	nodeData.getMethodData('GET', true).middleware.addData(0, middleware1);
+	nodeData.getMethodData('GET', true).terminators.addData(0, middleware2);
+	nodeData.getMethodData(SpecialMethod.ALL, true).middleware.addData(0, middleware3);
+	nodeData.getMethodData(SpecialMethod.ALL, true).terminators.addData(0, middleware1);
 
 	t.deepEqual(nodeData.getMethodData('GET')?.middleware.orderedData, [middleware1]);
 	t.deepEqual(nodeData.getMethodData('GET')?.terminators.orderedData, [middleware2]);
@@ -20,11 +20,11 @@ test('should allow adding and retrieving middleware for different methods withou
 	t.deepEqual(nodeData.getMethodData(SpecialMethod.ALL)?.terminators.orderedData, [middleware1]);
 });
 
-test('getOrCreateMethodData() and getMethodData()', (t) => {
+test('getMethodData()', (t) => {
 	let nodeData = new RouterNodeData();
 
-	const getMethodData = nodeData.getOrCreateMethodData('GET');
-	const postMethodData = nodeData.getOrCreateMethodData('POST');
+	const getMethodData = nodeData.getMethodData('GET', true);
+	const postMethodData = nodeData.getMethodData('POST', true);
 
 	// Returns a value
 	t.truthy(getMethodData);

@@ -27,19 +27,17 @@ export class MethodData<D> {
 export class RouterNodeData<StateT, ContextT> {
 	methodData: Map<string, MethodData<Middleware<StateT, ContextT>>> = new Map();
 
-	getOrCreateMethodData(method: string): MethodData<Middleware<StateT, ContextT>> {
+	getMethodData(method: string, createIfMissing: true): MethodData<Middleware<StateT, ContextT>>;
+	getMethodData(method: string, createIfMissing?: boolean): MethodData<Middleware<StateT, ContextT>> | undefined;
+	getMethodData(method: string, createIfMissing = false): MethodData<Middleware<StateT, ContextT>> | undefined {
 		let methodStages = this.methodData.get(method);
 
-		if (!methodStages) {
+		if (createIfMissing && !methodStages) {
 			methodStages = new MethodData<Middleware<StateT, ContextT>>();
 			this.methodData.set(method, methodStages);
 		}
 
 		return methodStages;
-	}
-
-	getMethodData(method: string): MethodData<Middleware<StateT, ContextT>> | undefined {
-		return this.methodData.get(method);
 	}
 
 	toString(): string {
@@ -104,17 +102,17 @@ export class Router<StateT = DefaultState, ContextT = DefaultContext> {
 	addMiddleware(method: string, path: string, stage: number, ...middleware: Middleware<StateT, ContextT>[]): void {
 		if (path.length < 0 || path[0] !== '/') throw new Error('Paths must start with "/"');
 
-		const node = this.rootNode.findOrCreateNode(path);
+		const node = this.rootNode.find(path, true);
 
-		node.data.getOrCreateMethodData(method).middleware.addData(stage, ...middleware);
+		node.data.getMethodData(method, true).middleware.addData(stage, ...middleware);
 	}
 
 	addTerminator(method: string, path: string, stage: number, ...middleware: Middleware<StateT, ContextT>[]): void {
 		if (path.length < 0 || path[0] !== '/') throw new Error('Paths must start with "/"');
 
-		const node = this.rootNode.findOrCreateNode(path);
+		const node = this.rootNode.find(path, true);
 
-		node.data.getOrCreateMethodData(method).terminators.addData(stage, ...middleware);
+		node.data.getMethodData(method, true).terminators.addData(stage, ...middleware);
 	}
 
 	middleware(): Middleware<StateT, ContextT> {
