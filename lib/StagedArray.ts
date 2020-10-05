@@ -26,7 +26,7 @@ export class StagedArray<D> {
 	addData(stage: number, ...data: D[]): void {
 		let insertIndex = (
 			this.stagedData.length === 0 ? 0
-			: this.stagedData[this.stagedData.length - 1][0] < stage ? this.stagedData.length
+			: this.stagedData[this.stagedData.length - 1][0] <= stage ? this.stagedData.length
 			: this.stagedData.findIndex(([s]) => stage < s)
 		);
 

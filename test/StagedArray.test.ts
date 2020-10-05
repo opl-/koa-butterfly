@@ -19,6 +19,15 @@ test('orders values according to stages', (t) => {
 	t.deepEqual([...stagedArray.orderedData], ['d', 'D', 'a', 'A', 'c', 'C', 'e', 'E', 'b', 'B']);
 });
 
+test('orders values according to insertion order', (t) => {
+	const stagedArray = new StagedArray<string>();
+
+	stagedArray.addData(0, 'a', 'A');
+	t.deepEqual(stagedArray.orderedData, ['a', 'A']);
+	stagedArray.addData(0, 'b', 'B');
+	t.deepEqual(stagedArray.orderedData, ['a', 'A', 'b', 'B']);
+});
+
 test('sorts data with other StagedArrays', (t) => {
 	const firstStagedArray = new StagedArray<string>();
 	firstStagedArray.addData(0, 'a');
