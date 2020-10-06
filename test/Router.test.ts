@@ -39,7 +39,8 @@ function append(str: string, last = false): Middleware {
 	registeredAppends[str] = true;
 
 	return (ctx: Context, next: Next) => {
-		ctx.body = (ctx.body ? `${ctx.body}:` : '') + str;
+		const toAppend = !ctx.param ? str : Object.entries(ctx.param as Record<string, string>).reduce((acc, [name, value]) => acc.replace(`:${name}`, `${value}:${name}`), str);
+		ctx.body = (ctx.body ? `${ctx.body}:` : '') + toAppend;
 
 		if (!last) return next();
 		return Promise.resolve();
@@ -290,6 +291,30 @@ test.serial('should maintain the call stack through all middleware', async (t) =
 		'MIDDLEWARE 0 /blog',
 		'MIDDLEWARE 0 /',
 	].join(':'));
+});
+
+test.serial('should handle parameters', async (t) => {
+	router.get('/user/@me', append('GET.T 0 /user/@me', true));
+	router.get('/user/:id(\\d+$)', append('GET.T 0 /user/:id', true));
+	router.get('/user/:id(\\d+$)/ban', append('GET.T 0 /user/:id/ban', true));
+	router.get('/user/:shortId$-10(\\d{1,2}$)', append('GET.T 0 /user/:shortId', true));
+	router.get('/user/:shortId$-10(\\d{1,2}$)/ban', append('GET.T 0 /user/:shortId/ban', true));
+	router.get('/user/x:hash([0-9a-f]{4}$)', append('GET.T 0 /user/x:hash', true));
+	router.get('/user/x:hash([0-9a-f]{4}$)/ban', append('GET.T 0 /user/x:hash/ban', true));
+
+	t.is(await simulate('GET', '/user/123'), 'GET.T 0 /user/123:id');
+	// TODO: test with strictSlashes
+	t.is(await simulate('GET', '/user/123/'), 'GET.T 0 /user/123:id');
+	t.is(await simulate('GET', '/user/123/ban'), 'GET.T 0 /user/123:id/ban');
+	t.is(await simulate('GET', '/user/45/'), 'GET.T 0 /user/45:shortId');
+	t.is(await simulate('GET', '/user/45/ban'), 'GET.T 0 /user/45:shortId/ban');
+	t.is(await simulate('GET', '/user/xffff'), 'GET.T 0 /user/xffff:hash');
+	t.is(await simulate('GET', '/user/x1111/'), 'GET.T 0 /user/x1111:hash');
+	t.is(await simulate('GET', '/user/x100a/ban'), 'GET.T 0 /user/x100a:hash/ban');
+	t.is(await simulate('GET', '/user/@me'), 'GET.T 0 /user/@me');
+	t.is(await simulate('GET', '/user/', false), undefined);
+	t.is(await simulate('GET', '/user//ban', false), undefined);
+	t.is(await simulate('GET', '/user/xx/ban', false), undefined);
 });
 
 test('supports custom context and state types', async (t) => {

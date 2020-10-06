@@ -18,11 +18,13 @@
   "author": "opl",
   "license": "MIT",
   "dependencies": {
-    "koa-compose": "^4.1.0"
+    "koa-compose": "^4.1.0",
+    "koa-mount": "^4.0.0"
   },
   "devDependencies": {
     "@types/koa": "^2.11.4",
     "@types/koa-compose": "^3.2.5",
+    "@types/koa-mount": "^4.0.0",
     "ava": "^3.12.1",
     "koa": "^2.13.0",
     "nyc": "^15.1.0",

@@ -1,7 +1,9 @@
 import {DefaultContext, DefaultState, Middleware, Next, ParameterizedContext} from 'koa';
 import compose from 'koa-compose';
+import mount from 'koa-mount';
 
 import {Node} from './Node';
+import {parsePath} from "./pathParser";
 import {StagedArray} from './StagedArray';
 
 export enum SpecialMethod {
@@ -24,8 +26,17 @@ export class MethodData<D> {
 	terminators: StagedArray<D> = new StagedArray();
 }
 
+export interface ParameterRoute<NodeT> {
+	name: string;
+	regex: RegExp | null;
+	matchAll: boolean;
+	rootNode: NodeT;
+}
+
 export class RouterNodeData<StateT, ContextT> {
 	methodData: Map<string, MethodData<Middleware<StateT, ContextT>>> = new Map();
+
+	lateParams = new StagedArray<ParameterRoute<Node<RouterNodeData<StateT, ContextT>>>>();
 
 	getMethodData(method: string, createIfMissing: true): MethodData<Middleware<StateT, ContextT>>;
 	getMethodData(method: string, createIfMissing?: boolean): MethodData<Middleware<StateT, ContextT>> | undefined;
@@ -67,7 +78,7 @@ export interface RouterOptions {
 async function middlewareGeneratorRunner<StateT, ContextT>(ctx: ParameterizedContext<StateT, ContextT>, next: Next, middlewareGenerator: AsyncGenerator<Middleware<StateT, ContextT>[]>): Promise<void> {
 	const middleware = await middlewareGenerator.next();
 
-	if (middleware.done) return next();
+	if (middleware.done) return;
 
 	if (middleware.value.length === 0) await middlewareGeneratorRunner(ctx, next, middlewareGenerator);
 	else if (middleware.value.length === 1) await middleware.value[0](ctx, () => middlewareGeneratorRunner(ctx, next, middlewareGenerator));
@@ -99,18 +110,63 @@ export class Router<StateT = DefaultState, ContextT = DefaultContext> {
 		this.strictSlashes = opts.strictSlashes ?? false;
 	}
 
-	addMiddleware(method: string, path: string, stage: number, ...middleware: Middleware<StateT, ContextT>[]): void {
+	getNode(path: string, createIfNone: true): this['rootNode'];
+	getNode(path: string, createIfNone: false): this['rootNode'] | null;
+	getNode(path: string, createIfNone = false): this['rootNode'] | null {
 		if (path.length < 0 || path[0] !== '/') throw new Error('Paths must start with "/"');
 
-		const node = this.rootNode.find(path, true);
+		const segments = parsePath(path);
+		let currentNode: this['rootNode'] | null = this.rootNode;
+
+		while (segments.length > 0 && currentNode) {
+			const currentSegment = segments.shift()!;
+
+			if (currentSegment.type === 'path') {
+				const foundNodes: this['rootNode'][] | null = currentNode.findAll(currentSegment.path, createIfNone);
+				if (!foundNodes) return null;
+				currentNode = foundNodes[foundNodes.length - 1];
+			} else if (currentSegment.type === 'parameter') {
+				const info = currentSegment.info;
+				let paramRoute: ParameterRoute<this['rootNode']> | undefined;
+
+				// Try to find an existing ParameterRoute matching the description
+				paramRoute = currentNode.data.lateParams.orderedData.find((param) => (
+					param.name === info.name && param.matchAll === info.matchAll && param.regex?.toString() === info.regex?.toString()
+				));
+
+				if (!paramRoute) {
+					// If we're not allowed to create new data, abort
+					if (!createIfNone) return null;
+
+					// Create a new ParameterRoute since one doesn't already exist
+					paramRoute = {
+						name: info.name,
+						matchAll: info.matchAll,
+						regex: info.regex,
+						rootNode: new Node(this.rootNode.dataCreator),
+					};
+					currentNode.data.lateParams.addData(info.stage, paramRoute);
+				}
+
+				currentNode = paramRoute.rootNode;
+			} else {
+				// @ts-ignore: sanity check
+				// istanbul ignore next: sanity check
+				throw new Error(`Unknown segment type: ${currentSegment.type}`);
+			}
+		}
+
+		return currentNode;
+	}
+
+	addMiddleware(method: string, path: string, stage: number, ...middleware: Middleware<StateT, ContextT>[]): void {
+		const node = this.getNode(path, true);
 
 		node.data.getMethodData(method, true).middleware.addData(stage, ...middleware);
 	}
 
 	addTerminator(method: string, path: string, stage: number, ...middleware: Middleware<StateT, ContextT>[]): void {
-		if (path.length < 0 || path[0] !== '/') throw new Error('Paths must start with "/"');
-
-		const node = this.rootNode.find(path, true);
+		const node = this.getNode(path, true);
 
 		node.data.getMethodData(method, true).terminators.addData(stage, ...middleware);
 	}
@@ -208,6 +264,32 @@ export class Router<StateT = DefaultState, ContextT = DefaultContext> {
 					if (middlewareData.terminators.length > 0) terminatorMiddleware.push(middlewareData.terminators);
 
 					if (middlewareData.middleware.length > 0) yield middlewareData.middleware.orderedData as any;
+				}
+			}
+
+			// Handle parameters. Ignores runNode to allow putting parameters in places other than right after a slash.
+			// FIXME: what if path starts with `/`? other edge cases?
+			if (currentNode.data.lateParams.length > 0) {
+				const slashIndex = remainingPath.indexOf('/');
+				const segmentValue = slashIndex === -1 ? remainingPath : remainingPath.substr(0, slashIndex);
+
+				for (const param of currentNode.data.lateParams.orderedData) {
+					const paramValue = param.matchAll ? remainingPath : segmentValue;
+
+					if (!param.regex || param.regex.test(paramValue)) {
+						(ctx as any).param ??= {};
+						const previousValue = (ctx as any).param[param.name];
+						(ctx as any).param[param.name] = paramValue;
+
+						// FIXME: i think the next call should be wrapped to revert the value back, like koa-mount does?
+						// FIXME: using koa-mount here likely breaks strict slashes, since it always replaces an empty path with `/`. it makes sense, just not for us.
+						await mount<StateT, ContextT>(ctx.path.substr(0, ctx.path.length - remainingPath.length + paramValue.length), (ctx2, next2) => this.handleNodePath(param.rootNode, ctx2, next2))(ctx, next);
+
+						(ctx as any).param[param.name] = previousValue;
+
+						// We matched the param - don't try anything else
+						return;
+					}
 				}
 			}
 		}
