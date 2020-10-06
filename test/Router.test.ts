@@ -293,7 +293,8 @@ test.serial('should maintain the call stack through all middleware', async (t) =
 	].join(':'));
 });
 
-test.serial('should handle parameters', async (t) => {
+test.serial('should handle complex combinations of parameters', async (t) => {
+	router.get('/post/:name', append('GET.T 0 /post/:name', true));
 	router.get('/user/@me', append('GET.T 0 /user/@me', true));
 	router.get('/user/:id(\\d+$)', append('GET.T 0 /user/:id', true));
 	router.get('/user/:id(\\d+$)/ban', append('GET.T 0 /user/:id/ban', true));
@@ -302,16 +303,29 @@ test.serial('should handle parameters', async (t) => {
 	router.get('/user/x:hash([0-9a-f]{4}$)', append('GET.T 0 /user/x:hash', true));
 	router.get('/user/x:hash([0-9a-f]{4}$)/ban', append('GET.T 0 /user/x:hash/ban', true));
 
+	// No regex
+	t.is(await simulate('GET', '/post/some-string'), 'GET.T 0 /post/some-string:name');
+
+	// Shouldn't match for empty params
+	t.is(await simulate('GET', '/post/', false), undefined);
+
+	// Matches the correct params, according to regexes and stage order
 	t.is(await simulate('GET', '/user/123'), 'GET.T 0 /user/123:id');
-	// TODO: test with strictSlashes
 	t.is(await simulate('GET', '/user/123/'), 'GET.T 0 /user/123:id');
 	t.is(await simulate('GET', '/user/123/ban'), 'GET.T 0 /user/123:id/ban');
 	t.is(await simulate('GET', '/user/45/'), 'GET.T 0 /user/45:shortId');
 	t.is(await simulate('GET', '/user/45/ban'), 'GET.T 0 /user/45:shortId/ban');
+
+	// Works with characters other than `/` before params
 	t.is(await simulate('GET', '/user/xffff'), 'GET.T 0 /user/xffff:hash');
 	t.is(await simulate('GET', '/user/x1111/'), 'GET.T 0 /user/x1111:hash');
+	t.is(await simulate('GET', '/user/x100a'), 'GET.T 0 /user/x100a:hash');
 	t.is(await simulate('GET', '/user/x100a/ban'), 'GET.T 0 /user/x100a:hash/ban');
+
+	// Works with static routes
 	t.is(await simulate('GET', '/user/@me'), 'GET.T 0 /user/@me');
+
+	// Doesn't match for invalid params
 	t.is(await simulate('GET', '/user/', false), undefined);
 	t.is(await simulate('GET', '/user//ban', false), undefined);
 	t.is(await simulate('GET', '/user/xx/ban', false), undefined);
