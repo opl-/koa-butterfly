@@ -272,11 +272,12 @@ export class Router<StateT = DefaultState, ContextT = DefaultContext> {
 			if (currentNode.data.lateParams.length > 0) {
 				const slashIndex = remainingPath.indexOf('/');
 				const segmentValue = slashIndex === -1 ? remainingPath : remainingPath.substr(0, slashIndex);
+				// TODO: skip checking params if segmentValue and remainingPath are both empty
 
 				for (const param of currentNode.data.lateParams.orderedData) {
 					const paramValue = param.matchAll ? remainingPath : segmentValue;
 
-					if (!param.regex || param.regex.test(paramValue)) {
+					if (paramValue.length > 0 && (!param.regex || param.regex.test(paramValue))) {
 						(ctx as any).param ??= {};
 						const previousValue = (ctx as any).param[param.name];
 						(ctx as any).param[param.name] = paramValue;
