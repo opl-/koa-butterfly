@@ -1,6 +1,5 @@
 import {DefaultContext, DefaultState, Middleware, Next, ParameterizedContext} from 'koa';
 import compose from 'koa-compose';
-import mount from 'koa-mount';
 
 import {Node} from './Node';
 import {parsePath} from "./pathParser";
@@ -176,15 +175,15 @@ export class Router<StateT = DefaultState, ContextT = DefaultContext> {
 	}
 
 	async middlewareHandler(ctx: ParameterizedContext<StateT, ContextT>, next: Next): Promise<void> {
-		return this.handleNodePath(this.rootNode, ctx, next);
+		return this.handleNodePath(this.rootNode, ctx.path, ctx, next);
 	}
 
-	async handleNodePath(node: this['rootNode'], ctx: ParameterizedContext<StateT, ContextT>, next: Next): Promise<void> {
-		return middlewareGeneratorRunner<StateT, ContextT>(ctx, next, this.middlewareGenerator(node, ctx, next));
+	async handleNodePath(node: this['rootNode'], path: string, ctx: ParameterizedContext<StateT, ContextT>, next: Next): Promise<void> {
+		return middlewareGeneratorRunner<StateT, ContextT>(ctx, next, this.middlewareGenerator(node, path, ctx, next));
 	}
 
-	async *middlewareGenerator(node: this['rootNode'], ctx: ParameterizedContext<StateT, ContextT>, next: Next) {
-		let nodeIterator = node.nodeIterator(ctx.path);
+	async *middlewareGenerator(node: this['rootNode'], path: string, ctx: ParameterizedContext<StateT, ContextT>, next: Next) {
+		let nodeIterator = node.nodeIterator(path);
 
 		let result: IteratorResultSequence<typeof nodeIterator> = {
 			// @ts-ignore: Set `current` to `undefined` since it'll always be set to `next` on the first pass
@@ -283,8 +282,7 @@ export class Router<StateT = DefaultState, ContextT = DefaultContext> {
 						(ctx as any).param[param.name] = paramValue;
 
 						// FIXME: i think the next call should be wrapped to revert the value back, like koa-mount does?
-						// FIXME: using koa-mount here likely breaks strict slashes, since it always replaces an empty path with `/`. it makes sense, just not for us.
-						await mount<StateT, ContextT>(ctx.path.substr(0, ctx.path.length - remainingPath.length + paramValue.length), (ctx2, next2) => this.handleNodePath(param.rootNode, ctx2, next2))(ctx, next);
+						await this.handleNodePath(param.rootNode, remainingPath.substr(paramValue.length), ctx, next);
 
 						(ctx as any).param[param.name] = previousValue;
 

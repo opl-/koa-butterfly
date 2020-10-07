@@ -331,6 +331,38 @@ test.serial('should handle complex combinations of parameters', async (t) => {
 	t.is(await simulate('GET', '/user/xx/ban', false), undefined);
 });
 
+test.serial('should handle trailing slashes in parameters with strictSlashes disabled', async (t) => {
+	router.get('/post/:name', append('GET.T 0 /post/:name', true));
+	router.get('/user/:id', append('GET.T 0 /user/:id', true));
+	router.get('/user/:id/', append('GET.T 0 /user/:id/', true));
+	router.get('/thing/:id/', append('GET.T 0 /thing/:id/', true));
+
+	t.is(await simulate('GET', '/post/some-string'), 'GET.T 0 /post/some-string:name');
+	t.is(await simulate('GET', '/post/some-string/'), 'GET.T 0 /post/some-string:name');
+	t.is(await simulate('GET', '/user/123'), 'GET.T 0 /user/123:id');
+	t.is(await simulate('GET', '/user/123/'), 'GET.T 0 /user/123:id/');
+	t.is(await simulate('GET', '/thing/123', false), undefined);
+	t.is(await simulate('GET', '/thing/123/'), 'GET.T 0 /thing/123:id/');
+});
+
+test.serial('should handle trailing slashes in parameters with strictSlashes enabled', async (t) => {
+	router = new Router({
+		strictSlashes: true,
+	});
+
+	router.get('/post/:name', append('GET.T 0 /post/:name', true));
+	router.get('/user/:id', append('GET.T 0 /user/:id', true));
+	router.get('/user/:id/', append('GET.T 0 /user/:id/', true));
+	router.get('/thing/:id/', append('GET.T 0 /thing/:id/', true));
+
+	t.is(await simulate('GET', '/post/some-string'), 'GET.T 0 /post/some-string:name');
+	t.is(await simulate('GET', '/post/some-string/', false), undefined);
+	t.is(await simulate('GET', '/user/123'), 'GET.T 0 /user/123:id');
+	t.is(await simulate('GET', '/user/123/'), 'GET.T 0 /user/123:id/');
+	t.is(await simulate('GET', '/thing/123', false), undefined);
+	t.is(await simulate('GET', '/thing/123/'), 'GET.T 0 /thing/123:id/');
+});
+
 test('supports custom context and state types', async (t) => {
 	function expect<T>(arg: T) {
 		void arg;
