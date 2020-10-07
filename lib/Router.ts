@@ -310,7 +310,8 @@ export class Router<StateT = DefaultState, ContextT = DefaultContext, RouterCont
 							ctx.params[param.name],
 							paramValue,
 							(newParamValue) => {
-								ctx.params[param.name] = newParamValue;
+								if (newParamValue === undefined) delete ctx.params[param.name];
+								else ctx.params[param.name] = newParamValue;
 							},
 							next,
 							(nextWrapper) => this.handleNodePath(param.rootNode, remainingPath.substr(paramValue.length), ctx, nextWrapper),
