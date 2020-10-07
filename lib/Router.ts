@@ -85,6 +85,29 @@ async function middlewareGeneratorRunner<StateT, ContextT>(ctx: ParameterizedCon
 }
 
 /**
+ * Used to set values for all middleware executed before the passed in `next` is called, then reset them back to the old value.
+ *
+ * In practice, this can be used to set parameter values while in the Router, while keeping them at their old values while giving up control to the `next` passed to the Router's middleware callback.
+ *
+ * This is similar to what `koa-mount` does with `ctx.path` and `ctx.mountPath`.
+ *
+ * @param oldValue Value passed to the setter to reset the value back to the old one
+ * @param newValue Value passed to the setter to set the new value
+ * @param setter Function setting the wanted values
+ * @param next The middleware callback to call after the `wrappedNext` passed through `callback` is called
+ * @param callback Function to call after the values have been set
+ */
+export async function middlewareValueWrapper<T>(oldValue: T, newValue: T, setter: (value: T) => any, next: Next, callback: (wrappedNext: () => any) => Promise<void>): Promise<void> {
+	setter(newValue);
+	await callback(async () => {
+		setter(oldValue);
+		await next();
+		setter(newValue);
+	});
+	setter(oldValue);
+}
+
+/**
  * Type that assumes that:
  * - if `next` isn't done, then `current` can't be done either,
  * - `current` is never going to be done.
@@ -278,13 +301,16 @@ export class Router<StateT = DefaultState, ContextT = DefaultContext> {
 
 					if (paramValue.length > 0 && (!param.regex || param.regex.test(paramValue))) {
 						(ctx as any).param ??= {};
-						const previousValue = (ctx as any).param[param.name];
-						(ctx as any).param[param.name] = paramValue;
 
-						// FIXME: i think the next call should be wrapped to revert the value back, like koa-mount does?
-						await this.handleNodePath(param.rootNode, remainingPath.substr(paramValue.length), ctx, next);
-
-						(ctx as any).param[param.name] = previousValue;
+						await middlewareValueWrapper(
+							(ctx as any).param[param.name],
+							paramValue,
+							(newParamValue) => {
+								(ctx as any).param[param.name] = newParamValue;
+							},
+							next,
+							(nextWrapper) => this.handleNodePath(param.rootNode, remainingPath.substr(paramValue.length), ctx, nextWrapper),
+						);
 
 						// We matched the param - don't try anything else
 						return;

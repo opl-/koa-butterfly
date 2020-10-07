@@ -7,7 +7,7 @@ let router = new Router();
 
 type MethodsWithHelpers = 'CONNECT' | 'DELETE' | 'GET' | 'HEAD' | 'OPTIONS' | 'PATCH' | 'POST' | 'PUT' | 'TRACE';
 
-async function simulate(method: MethodsWithHelpers, path: string, shouldMatch = true): Promise<string | {message: string; body?: string;} | undefined> {
+async function doSimulation(method: MethodsWithHelpers, path: string, nextMiddleware: Middleware): Promise<Context> {
 	const context = {
 		path,
 		method,
@@ -15,9 +15,17 @@ async function simulate(method: MethodsWithHelpers, path: string, shouldMatch = 
 		status: 200,
 	};
 
+	await router.middleware()(context as any, async () => {
+		await nextMiddleware(context as any, async () => {});
+	});
+
+	return context as any;
+}
+
+async function simulate(method: MethodsWithHelpers, path: string, shouldMatch = true, modifyOutput?: (context: any) => any): Promise<string | {message: string; body?: string;} | undefined> {
 	let matched = true;
 
-	await router.middleware()(context as any, async () => {
+	const context = await doSimulation(method, path, async () => {
 		matched = false;
 	});
 
@@ -30,8 +38,8 @@ async function simulate(method: MethodsWithHelpers, path: string, shouldMatch = 
 		body: context.body,
 	};
 
-	return context.body;
-};
+	return modifyOutput ? modifyOutput(context) : context.body;
+}
 
 let registeredAppends: Record<string, true> = {};
 function append(str: string, last = false): Middleware {
@@ -361,6 +369,25 @@ test.serial('should handle trailing slashes in parameters with strictSlashes ena
 	t.is(await simulate('GET', '/user/123/'), 'GET.T 0 /user/123:id/');
 	t.is(await simulate('GET', '/thing/123', false), undefined);
 	t.is(await simulate('GET', '/thing/123/'), 'GET.T 0 /thing/123:id/');
+});
+
+test.serial('parameters should not leak to the next callback', async (t) => {
+	router.get('/post/:id', append('GET.T 0 /post/:id'));
+	router.get('/user/:id/ban/:reason/', append('GET.T 0 /user/:id/ban/:reason/'));
+
+	t.deepEqual(await simulate('GET', '/post/23', false, (ctx) => [ctx.body, ctx.param]) as any, ['GET.T 0 /post/23:id', {id: undefined}]);
+	t.deepEqual(await simulate('GET', '/user/123/ban/2/', false, (ctx) => [ctx.body, ctx.param]) as any, ['GET.T 0 /user/123:id/ban/2:reason/', {id: undefined, reason: undefined}]);
+
+	t.is((await doSimulation('GET', '/post/23', (ctx, next) => {
+		if (ctx.param.id !== undefined) throw new Error(`Parameter id was set to ${ctx.param.id}`);
+		next();
+	})).body, 'GET.T 0 /post/23:id');
+
+	t.is((await doSimulation('GET', '/user/23/ban/stuff/', (ctx, next) => {
+		if (ctx.param.id !== undefined) throw new Error(`Parameter id was set to ${ctx.param.id}`);
+		if (ctx.param.reason !== undefined) throw new Error(`Parameter reason was set to ${ctx.param.reason}`);
+		next();
+	})).body, 'GET.T 0 /user/23:id/ban/stuff:reason/');
 });
 
 test('supports custom context and state types', async (t) => {
