@@ -289,7 +289,7 @@ export class Router<StateT = DefaultState, ContextT = DefaultContext, RouterCont
 				if (middlewareData) {
 					if (middlewareData.terminators.length > 0) terminatorMiddleware.push(middlewareData.terminators);
 
-					if (middlewareData.middleware.length > 0) yield middlewareData.middleware.orderedData as any;
+					if (middlewareData.middleware.length > 0) yield middlewareData.middleware.orderedData;
 				}
 			}
 
