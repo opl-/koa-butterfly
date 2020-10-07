@@ -293,12 +293,10 @@ export class Router<StateT = DefaultState, ContextT = DefaultContext, RouterCont
 				}
 			}
 
-			// Handle parameters. Ignores runNode to allow putting parameters in places other than right after a slash.
-			// FIXME: what if path starts with `/`? other edge cases?
+			// Handle parameters. Ignores path boundary checks to allow putting parameters in places other than right after a slash.
 			if (currentNode.data.lateParams.length > 0) {
 				const slashIndex = remainingPath.indexOf('/');
 				const segmentValue = slashIndex === -1 ? remainingPath : remainingPath.substr(0, slashIndex);
-				// TODO: skip checking params if segmentValue and remainingPath are both empty
 
 				for (const param of currentNode.data.lateParams.orderedData) {
 					let paramValue = param.matchAll ? remainingPath : segmentValue;
