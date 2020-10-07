@@ -372,11 +372,11 @@ test.serial('should handle trailing slashes in parameters with strictSlashes ena
 });
 
 test.serial('parameters should not leak to the next callback', async (t) => {
-	router.get('/post/:id', append('GET.T 0 /post/:id'));
-	router.get('/user/:id/ban/:reason/', append('GET.T 0 /user/:id/ban/:reason/'));
+	router.get('/post/:id', append('GET.T 0 /post/:id', true));
+	router.get('/user/:id/ban/:reason/', append('GET.T 0 /user/:id/ban/:reason/', true));
 
-	t.deepEqual(await simulate('GET', '/post/23', false, (ctx) => [ctx.body, ctx.params]) as any, ['GET.T 0 /post/23:id', {}]);
-	t.deepEqual(await simulate('GET', '/user/123/ban/2/', false, (ctx) => [ctx.body, ctx.params]) as any, ['GET.T 0 /user/123:id/ban/2:reason/', {}]);
+	t.deepEqual(await simulate('GET', '/post/23', true, (ctx) => [ctx.body, ctx.params]) as any, ['GET.T 0 /post/23:id', {}]);
+	t.deepEqual(await simulate('GET', '/user/123/ban/2/', true, (ctx) => [ctx.body, ctx.params]) as any, ['GET.T 0 /user/123:id/ban/2:reason/', {}]);
 
 	t.is((await doSimulation('GET', '/post/23', (ctx, next) => {
 		if (ctx.params.id !== undefined) throw new Error(`Parameter id was set to ${ctx.params.id}`);
