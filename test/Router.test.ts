@@ -47,7 +47,7 @@ function append(str: string, last = false): Middleware {
 	registeredAppends[str] = true;
 
 	return (ctx: Context, next: Next) => {
-		const toAppend = !ctx.param ? str : Object.entries(ctx.param as Record<string, string>).reduce((acc, [name, value]) => acc.replace(`:${name}`, `${value}:${name}`), str);
+		const toAppend = !ctx.params ? str : Object.entries(ctx.params).reduce((acc, [name, value]) => acc.replace(`:${name}`, `${value}:${name}`), str);
 		ctx.body = (ctx.body ? `${ctx.body}:` : '') + toAppend;
 
 		if (!last) return next();
@@ -375,17 +375,17 @@ test.serial('parameters should not leak to the next callback', async (t) => {
 	router.get('/post/:id', append('GET.T 0 /post/:id'));
 	router.get('/user/:id/ban/:reason/', append('GET.T 0 /user/:id/ban/:reason/'));
 
-	t.deepEqual(await simulate('GET', '/post/23', false, (ctx) => [ctx.body, ctx.param]) as any, ['GET.T 0 /post/23:id', {id: undefined}]);
-	t.deepEqual(await simulate('GET', '/user/123/ban/2/', false, (ctx) => [ctx.body, ctx.param]) as any, ['GET.T 0 /user/123:id/ban/2:reason/', {id: undefined, reason: undefined}]);
+	t.deepEqual(await simulate('GET', '/post/23', false, (ctx) => [ctx.body, ctx.params]) as any, ['GET.T 0 /post/23:id', {id: undefined}]);
+	t.deepEqual(await simulate('GET', '/user/123/ban/2/', false, (ctx) => [ctx.body, ctx.params]) as any, ['GET.T 0 /user/123:id/ban/2:reason/', {id: undefined, reason: undefined}]);
 
 	t.is((await doSimulation('GET', '/post/23', (ctx, next) => {
-		if (ctx.param.id !== undefined) throw new Error(`Parameter id was set to ${ctx.param.id}`);
+		if (ctx.params.id !== undefined) throw new Error(`Parameter id was set to ${ctx.params.id}`);
 		next();
 	})).body, 'GET.T 0 /post/23:id');
 
 	t.is((await doSimulation('GET', '/user/23/ban/stuff/', (ctx, next) => {
-		if (ctx.param.id !== undefined) throw new Error(`Parameter id was set to ${ctx.param.id}`);
-		if (ctx.param.reason !== undefined) throw new Error(`Parameter reason was set to ${ctx.param.reason}`);
+		if (ctx.params.id !== undefined) throw new Error(`Parameter id was set to ${ctx.params.id}`);
+		if (ctx.params.reason !== undefined) throw new Error(`Parameter reason was set to ${ctx.params.reason}`);
 		next();
 	})).body, 'GET.T 0 /user/23:id/ban/stuff:reason/');
 });
