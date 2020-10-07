@@ -301,7 +301,13 @@ export class Router<StateT = DefaultState, ContextT = DefaultContext, RouterCont
 				// TODO: skip checking params if segmentValue and remainingPath are both empty
 
 				for (const param of currentNode.data.lateParams.orderedData) {
-					const paramValue = param.matchAll ? remainingPath : segmentValue;
+					let paramValue = param.matchAll ? remainingPath : segmentValue;
+
+					// If a parameter is matchAll and has a regex, consume only the matched part
+					if (param.matchAll && param.regex) {
+						const result = paramValue.match(param.regex);
+						paramValue = result ? result[0] : '';
+					}
 
 					if (paramValue.length > 0 && (!param.regex || param.regex.test(paramValue))) {
 						ctx.params ??= {};

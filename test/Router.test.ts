@@ -390,6 +390,33 @@ test.serial('parameters should not leak to the next callback', async (t) => {
 	})).body, 'GET.T 0 /user/23:id/ban/stuff:reason/');
 });
 
+test.serial('parameters with matchAll and no regex should match for all paths', async (t) => {
+	router.get('/post/:name*', append('GET.T 0 /post/:name*', true));
+
+	t.is(await simulate('GET', '/post/multi/segment/value'), 'GET.T 0 /post/multi/segment/value:name*');
+	t.is(await simulate('GET', '/post/', false), undefined);
+});
+
+test.serial('parameters with matchAll and a regex should consume only the matched part', async (t) => {
+	router.get('/user/:name([\\w/]{1,3})*/ban', append('GET.T 0 /user/:name*/ban', true));
+	router.get('/user/:name([\\w/]{1,3})*/info', append('GET.T 0 /user/:name*/info', true));
+	router.get('/post/:name([\\w/]{1,3}$)*/info', append('GET.T 0 /post/:name*/info', true));
+	router.get('/post2/:name([\\w/]{1,3}$)*', append('GET.T 0 /post2/:name*', true));
+
+	t.is(await simulate('GET', '/user/a/a/ban'), 'GET.T 0 /user/a/a:name*/ban');
+	t.is(await simulate('GET', '/user/a/a/info'), 'GET.T 0 /user/a/a:name*/info');
+	t.is(await simulate('GET', '/user//ban', false), undefined);
+	t.is(await simulate('GET', '/user//info', false), undefined);
+
+	// A matchAll param with a regex ending in $ and more path after it can never match
+	t.is(await simulate('GET', '/post/a/a/info', false), undefined);
+
+	// A matchAll param with a regex ending in $ with no more path after it should match only if no more path appears after it
+	t.is(await simulate('GET', '/post2/a/a'), 'GET.T 0 /post2/a/a:name*');
+	t.is(await simulate('GET', '/post2/a/a/wrong', false), undefined);
+	t.is(await simulate('GET', '/post2/', false), undefined);
+});
+
 test('supports custom context and state types', async (t) => {
 	function expect<T>(arg: T) {
 		void arg;

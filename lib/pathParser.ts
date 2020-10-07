@@ -124,9 +124,11 @@ function parsePrimary(s: ParserState) {
 		if (s.output.length === 0) throw new Error('Path must not start with a parameter');
 		const lastOutput = s.output[s.output.length - 1];
 		if (lastOutput.type === 'parameter') throw new Error(`Parameter at index ${s.index} must not immediately follow parameter ${JSON.stringify(lastOutput.info.name)}`);
-		// FIXME: either disallow additional segments after a matchAll param, or allow matchAll params to only consume what their regex consumes
 
 		const parameter = parseParam(s);
+
+		if (s.index !== s.input.length && parameter.matchAll && parameter.regex === null) throw new Error(`Match all parameter ${JSON.stringify(parameter.name)} without regex must not have any path remaining after it`);
+
 		s.output.push({
 			type: 'parameter',
 			info: parameter,
