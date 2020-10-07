@@ -5,19 +5,24 @@ import {Node} from './Node';
 import {parsePath} from "./pathParser";
 import {StagedArray} from './StagedArray';
 
+/**
+ * Contains keys used to internally store special types of middleware.
+ *
+ * Names are prefixed with a null byte because according to the HTTP RFC, these method names are otherwise technically valid, despite Node.js seemingly rejecting them. See https://tools.ietf.org/html/rfc7231#section-4
+ */
 export enum SpecialMethod {
 	/**
 	 * Middleware for this special method will get executed for matching path segments, as soon as they're encountered.
 	 *
 	 * Terminators will be executed at the end of the request, but only if the request path matches a node with terminators.
 	 */
-	MIDDLEWARE = 'middleware',
+	MIDDLEWARE = '\x00middleware',
 	/**
 	 * Middleware bound to this special method is called together with the middleware for the specific HTTP request methods.
 	 *
 	 * Terminators bound to this method are called for any HTTP request method, but only after the more specific options are exhausted.
 	 */
-	ALL = 'all',
+	ALL = '\x00all',
 }
 
 export class MethodData<D> {
@@ -33,6 +38,7 @@ export interface ParameterRoute<NodeT> {
 }
 
 export class RouterNodeData<StateT, ContextT> {
+	/** Stores middleware used for different HTTP methods, as well as some special methods, which are used for mounting middleware on specific paths, and middleware that should run for all methods. */
 	methodData: Map<string, MethodData<Middleware<StateT, ContextT>>> = new Map();
 
 	lateParams = new StagedArray<ParameterRoute<Node<RouterNodeData<StateT, ContextT>>>>();
@@ -235,7 +241,6 @@ export class Router<StateT = DefaultState, ContextT = DefaultContext, RouterCont
 				// The node is final if there are no nodes to follow and if no path remains (or if strict slashes are disabled, if only a slash remains)
 				if (result.next.done && (remainingPath.length === 0 || (!this.strictSlashes && remainingPath === '/'))) {
 					// Run node as the final node
-					// FIXME: make sure that clients can't just send in `middleware` or another literal, and that actual methods are never lowercased. possibly switch to symbols for special methods
 					let methodData = currentNode.data.getMethodData(ctx.method);
 					let headData: typeof methodData;
 
