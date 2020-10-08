@@ -408,6 +408,16 @@ test.serial('parameter value should match what the regex consumes', async (t) =>
 	t.is(await simulate('GET', '/thing/some%string'), 'GET.T 0 /thing/some:name%string:rest');
 });
 
+test.serial('should allow parameter values to be empty if the regex matches an empty string', async (t) => {
+	router.get('/post/:name(.*)', append('GET.T 0 /post/:name', true));
+	router.get('/post/:name(.*)/asd', append('GET.T 0 /post/:name/asd', true));
+
+	t.is(await simulate('GET', '/post/string'), 'GET.T 0 /post/string:name');
+	t.is(await simulate('GET', '/post/'), 'GET.T 0 /post/:name');
+	t.is(await simulate('GET', '/post/string/asd'), 'GET.T 0 /post/string:name/asd');
+	t.is(await simulate('GET', '/post//asd'), 'GET.T 0 /post/:name/asd');
+})
+
 test.serial('parameters should not leak to the next callback', async (t) => {
 	router.get('/post/:id', append('GET.T 0 /post/:id', true));
 	router.get('/user/:id/ban/:reason/', append('GET.T 0 /user/:id/ban/:reason/', true));
