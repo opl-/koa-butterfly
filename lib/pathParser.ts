@@ -123,7 +123,7 @@ function parsePrimary(s: ParserState) {
 	if (c === ':') {
 		if (s.output.length === 0) throw new Error('Path must not start with a parameter');
 		const lastOutput = s.output[s.output.length - 1];
-		if (lastOutput.type === 'parameter') throw new Error(`Parameter at index ${s.index} must not immediately follow parameter ${JSON.stringify(lastOutput.info.name)}`);
+		if (lastOutput.type === 'parameter' && lastOutput.info.regex === null) throw new Error(`Parameter at index ${s.index} must not immediately follow parameter without regex ${JSON.stringify(lastOutput.info.name)}`);
 
 		const parameter = parseParam(s);
 

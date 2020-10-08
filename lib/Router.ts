@@ -306,29 +306,34 @@ export class Router<StateT = DefaultState, ContextT = DefaultContext, RouterCont
 				for (const param of currentNode.data.lateParams.orderedData) {
 					let paramValue = param.matchAll ? remainingPath : segmentValue;
 
-					// If a parameter is matchAll and has a regex, consume only the matched part
-					if (param.matchAll && param.regex) {
+					// Empty parameters are only allowed if the regex matches them - continue if it doesn't
+					if (paramValue.length === 0 && !param.regex) continue;
+
+					// If a parameter has a regex, consume only the matched part
+					if (param.regex) {
 						const result = paramValue.match(param.regex);
-						paramValue = result ? result[0] : '';
+
+						// If the regex doesn't match, skip the parameter
+						if (result == null) continue;
+
+						paramValue = result[0];
 					}
 
-					if (paramValue.length > 0 && (!param.regex || param.regex.test(paramValue))) {
-						ctx.params ??= {};
+					ctx.params ??= {};
 
-						await middlewareValueWrapper(
-							ctx.params[param.name],
-							paramValue,
-							(newParamValue) => {
-								if (newParamValue === undefined) delete ctx.params[param.name];
-								else ctx.params[param.name] = newParamValue;
-							},
-							next,
-							(nextWrapper) => this.handleNodePath(param.rootNode, remainingPath.substr(paramValue.length), ctx, nextWrapper),
-						);
+					await middlewareValueWrapper(
+						ctx.params[param.name],
+						paramValue,
+						(newParamValue) => {
+							if (newParamValue === undefined) delete ctx.params[param.name];
+							else ctx.params[param.name] = newParamValue;
+						},
+						next,
+						(nextWrapper) => this.handleNodePath(param.rootNode, remainingPath.substr((paramValue as string).length), ctx, nextWrapper),
+					);
 
-						// We matched the param - don't try anything else
-						return;
-					}
+					// We matched the param - don't try anything else
+					return;
 				}
 			}
 		}

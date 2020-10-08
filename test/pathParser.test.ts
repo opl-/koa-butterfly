@@ -22,9 +22,32 @@ test('should parse paths', (t) => {
 	}]);
 });
 
-test('should disallow parameters at the beginning and immediately following other parameters', (t) => {
+test('should disallow parameters at the beginning and immediately following other parameters without regex', (t) => {
 	t.throws(() => parsePath(':param'), {message: 'Path must not start with a parameter'});
-	t.throws(() => parsePath('/:param1:param2'), {message: 'Parameter at index 8 must not immediately follow parameter "param1"'});
+	t.throws(() => parsePath('/:param1:param2'), {message: 'Parameter at index 8 must not immediately follow parameter without regex "param1"'});
+});
+
+test('should allow parameters following other parameters if they have a regex', (t) => {
+	t.deepEqual(parsePath('/:param1(\\w{1,4}):param2'), [{
+		type: 'path',
+		path: '/',
+	}, {
+		type: 'parameter',
+		info: {
+			name: 'param1',
+			matchAll: false,
+			regex: /^\w{1,4}/,
+			stage: 0,
+		},
+	}, {
+		type: 'parameter',
+		info: {
+			name: 'param2',
+			matchAll: false,
+			regex: null,
+			stage: 0,
+		},
+	}]);
 });
 
 test('should disallow match all parameters if more path appears after them, unless they have a regex', (t) => {

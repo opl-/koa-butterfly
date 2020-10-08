@@ -306,6 +306,7 @@ test.serial('should handle complex combinations of parameters', async (t) => {
 	router.get('/user/@me', append('GET.T 0 /user/@me', true));
 	router.get('/user/:id(\\d+$)', append('GET.T 0 /user/:id', true));
 	router.get('/user/:id(\\d+$)/ban', append('GET.T 0 /user/:id/ban', true));
+	router.get('/user/:shortId(\\d{1,2}):rest', append('GET.T 0 /user/:shortId:rest', true));
 	router.get('/user/:shortId$-10(\\d{1,2}$)', append('GET.T 0 /user/:shortId', true));
 	router.get('/user/:shortId$-10(\\d{1,2}$)/ban', append('GET.T 0 /user/:shortId/ban', true));
 	router.get('/user/x:hash([0-9a-f]{4}$)', append('GET.T 0 /user/x:hash', true));
@@ -323,6 +324,11 @@ test.serial('should handle complex combinations of parameters', async (t) => {
 	t.is(await simulate('GET', '/user/123/ban'), 'GET.T 0 /user/123:id/ban');
 	t.is(await simulate('GET', '/user/45/'), 'GET.T 0 /user/45:shortId');
 	t.is(await simulate('GET', '/user/45/ban'), 'GET.T 0 /user/45:shortId/ban');
+
+	// Trailing parameters match when appropriate
+	t.is(await simulate('GET', '/user/45asd'), 'GET.T 0 /user/45:shortIdasd:rest');
+	t.is(await simulate('GET', '/user/45asd/'), 'GET.T 0 /user/45:shortIdasd:rest');
+	t.is(await simulate('GET', '/user/45asd/asd', false), undefined);
 
 	// Works with characters other than `/` before params
 	t.is(await simulate('GET', '/user/xffff'), 'GET.T 0 /user/xffff:hash');
@@ -369,6 +375,37 @@ test.serial('should handle trailing slashes in parameters with strictSlashes ena
 	t.is(await simulate('GET', '/user/123/'), 'GET.T 0 /user/123:id/');
 	t.is(await simulate('GET', '/thing/123', false), undefined);
 	t.is(await simulate('GET', '/thing/123/'), 'GET.T 0 /thing/123:id/');
+});
+
+test.serial('should handle trailing slashes in parameters with strictSlashes enabled and trailing parameters', async (t) => {
+	router = new Router({
+		strictSlashes: true,
+	});
+
+	router.get('/post/:id(\\w):rest', append('GET.T 0 /post/:id:rest', true));
+	router.get('/user/:id(\\w):rest', append('GET.T 0 /user/:id:rest', true));
+	router.get('/user/:id(\\w):rest/', append('GET.T 0 /user/:id:rest/', true));
+	router.get('/thing/:id(\\w):rest/', append('GET.T 0 /thing/:id:rest/', true));
+
+	t.is(await simulate('GET', '/post/123'), 'GET.T 0 /post/1:id23:rest');
+	t.is(await simulate('GET', '/post/123/', false), undefined);
+	t.is(await simulate('GET', '/user/123'), 'GET.T 0 /user/1:id23:rest');
+	t.is(await simulate('GET', '/user/123/'), 'GET.T 0 /user/1:id23:rest/');
+	t.is(await simulate('GET', '/thing/123', false), undefined);
+	t.is(await simulate('GET', '/thing/123/'), 'GET.T 0 /thing/1:id23:rest/');
+});
+
+test.serial('parameter value should match what the regex consumes', async (t) => {
+	router.get('/post/:name(\\w+)', append('GET.T 0 /post/:name', true));
+	router.get('/user/:name(\\w+):rest(.*)', append('GET.T 0 /user/:name:rest', true));
+	router.get('/thing/:name(\\w+):rest', append('GET.T 0 /thing/:name:rest', true));
+
+	t.is(await simulate('GET', '/post/some_string'), 'GET.T 0 /post/some_string:name');
+	t.is(await simulate('GET', '/post/some%string', false), undefined);
+	t.is(await simulate('GET', '/user/some_string'), 'GET.T 0 /user/some_string:name:rest');
+	t.is(await simulate('GET', '/user/some%string'), 'GET.T 0 /user/some:name%string:rest');
+	t.is(await simulate('GET', '/thing/some_string', false), undefined);
+	t.is(await simulate('GET', '/thing/some%string'), 'GET.T 0 /thing/some:name%string:rest');
 });
 
 test.serial('parameters should not leak to the next callback', async (t) => {
