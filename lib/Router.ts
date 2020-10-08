@@ -154,9 +154,9 @@ export class Router<StateT = DefaultState, ContextT = DefaultContext, RouterCont
 			const currentSegment = segments.shift()!;
 
 			if (currentSegment.type === 'path') {
-				const foundNodes: this['rootNode'][] | null = currentNode.findAll(currentSegment.path, createIfNone);
-				if (!foundNodes) return null;
-				currentNode = foundNodes[foundNodes.length - 1];
+				const foundNode: this['rootNode'] | null = currentNode.find(currentSegment.path, createIfNone);
+				if (!foundNode) return null;
+				currentNode = foundNode;
 			} else if (currentSegment.type === 'parameter') {
 				const info = currentSegment.info;
 				let paramRoute: ParameterRoute<this['rootNode']> | undefined;
