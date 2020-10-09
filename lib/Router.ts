@@ -75,9 +75,9 @@ export interface RouterOptions {
 	strictSlashes?: boolean;
 }
 
-export interface RouterContext {
+export type RouterContext<StateT, ContextT> = {
 	params: Record<string, string>;
-}
+} & ContextT;
 
 /**
  * Runs any middleware provided by the given generator.
@@ -133,7 +133,7 @@ type IteratorResultSequence<G extends Generator> = {
 /**
  * A router implementation for Koa using a radix tree.
  */
-export class Router<StateT = DefaultState, ContextT = DefaultContext, RouterContextT extends RouterContext & ContextT = RouterContext & ContextT> {
+export class Router<StateT = DefaultState, ContextT = DefaultContext, RouterContextT extends RouterContext<StateT, ContextT> = RouterContext<StateT, ContextT>> {
 	rootNode: Node<RouterNodeData<StateT, RouterContextT>> = new Node(() => new RouterNodeData());
 
 	private strictSlashes: boolean;
