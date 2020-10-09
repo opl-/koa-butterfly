@@ -282,7 +282,7 @@ test.serial('should maintain the call stack through all middleware', async (t) =
 	router.addMiddleware(SpecialMethod.ALL, '/blog', 0, appendTwice('ALL 0 /blog'));
 	router.addTerminator(SpecialMethod.ALL, '/blog', 0, appendTwice('ALL.T 0 /blog', true));
 
-	t.is(await simulate('GET', '/blog'), [
+	const stack = [
 		'MIDDLEWARE 0 /',
 		'MIDDLEWARE 0 /blog',
 		'MIDDLEWARE.T 0 /',
@@ -291,14 +291,8 @@ test.serial('should maintain the call stack through all middleware', async (t) =
 		'ALL 0 /blog',
 		'GET.T 0 /blog',
 		'ALL.T 0 /blog',
-		'GET.T 0 /blog',
-		'ALL 0 /blog',
-		'GET 0 /blog',
-		'MIDDLEWARE.T 0 /blog',
-		'MIDDLEWARE.T 0 /',
-		'MIDDLEWARE 0 /blog',
-		'MIDDLEWARE 0 /',
-	].join(':'));
+	];
+	t.is(await simulate('GET', '/blog'), stack.concat(stack.slice().reverse().slice(1)).join(':'));
 });
 
 test.serial('should handle complex combinations of parameters', async (t) => {
