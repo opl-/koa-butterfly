@@ -292,7 +292,9 @@ test.serial('should maintain the call stack through all middleware', async (t) =
 		'GET.T 0 /blog',
 		'ALL.T 0 /blog',
 	];
-	t.is(await simulate('GET', '/blog'), stack.concat(stack.slice().reverse().slice(1)).join(':'));
+
+	const result = await simulate('GET', '/blog/89/more');
+	t.deepEqual(typeof result === 'string' ? result.split(/:(?!id)/g) : result, stack.concat(stack.slice().reverse().slice(1)));
 });
 
 test.serial('should handle complex combinations of parameters', async (t) => {
