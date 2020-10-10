@@ -5,6 +5,8 @@ import {Node} from './Node';
 import {parsePath} from "./pathParser";
 import {StagedArray} from './StagedArray';
 
+export const TERMINATOR_MIDDLEWARE_KEY = 'koa-butterfly/terminator-middleware';
+
 /**
  * Contains keys used to internally store special types of middleware.
  *
@@ -77,6 +79,7 @@ export interface RouterOptions {
 
 export type RouterContext<StateT, ContextT> = {
 	params: Record<string, string>;
+	[TERMINATOR_MIDDLEWARE_KEY]: StagedArray<Middleware<StateT, ContextT>>[];
 } & ContextT;
 
 /**
@@ -212,7 +215,17 @@ export class Router<StateT = DefaultState, ContextT = DefaultContext, RouterCont
 	}
 
 	async handleNodePath(node: this['rootNode'], path: string, ctx: ParameterizedContext<StateT, RouterContextT>, next: Next): Promise<void> {
-		return middlewareGeneratorRunner<StateT, RouterContextT>(ctx, next, this.middlewareGenerator(node, path, ctx, next));
+		return middlewareValueWrapper(
+			ctx[TERMINATOR_MIDDLEWARE_KEY],
+			ctx[TERMINATOR_MIDDLEWARE_KEY] ? ctx[TERMINATOR_MIDDLEWARE_KEY].slice() : [],
+			(value) => {
+				// @ts-ignore: the value will always be set within our Router handlers
+				if (value === undefined) delete ctx[TERMINATOR_MIDDLEWARE_KEY];
+				else ctx[TERMINATOR_MIDDLEWARE_KEY] = value;
+			},
+			next,
+			(wrappedNext) => middlewareGeneratorRunner<StateT, RouterContextT>(ctx, next, this.middlewareGenerator(node, path, ctx, wrappedNext)),
+		);
 	}
 
 	async *middlewareGenerator(node: this['rootNode'], path: string, ctx: ParameterizedContext<StateT, RouterContextT>, next: Next) {
@@ -223,8 +236,8 @@ export class Router<StateT = DefaultState, ContextT = DefaultContext, RouterCont
 			current: undefined as unknown,
 			next: nodeIterator.next(),
 		};
-		// FIXME: these will be lost when going into another router. what do? (pass them through to that routers stuff? make it more fireproof by putting it in ctx/ctx.state?)
-		let terminatorMiddleware: StagedArray<Middleware<StateT, RouterContextT>>[] = [];
+
+		const terminatorMiddleware: StagedArray<Middleware<StateT, RouterContextT>>[] = ctx[TERMINATOR_MIDDLEWARE_KEY];
 
 		while (true) {
 			// We reached the end of the chain, but nextNode was called. Go to the next middleware in the parent stack.

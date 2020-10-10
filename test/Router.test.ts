@@ -1,7 +1,8 @@
 import test from 'ava';
 import {Context, Middleware, Next} from 'koa';
 
-import {Router, SpecialMethod} from '../lib/Router';
+import {Router, SpecialMethod, TERMINATOR_MIDDLEWARE_KEY} from '../lib/Router';
+import {StagedArray} from '../lib/StagedArray';
 
 let router = new Router();
 
@@ -233,6 +234,27 @@ test.serial('use(\'/\') (without a wildcard) should attach all middleware as ter
 	t.is(await simulate('GET', '/', false), undefined);
 });
 
+// TODO: test that terminator middleware is still passed to nested routers
+test.serial('terminator middleware should not leak out of the Router', async (t) => {
+	t.plan(6);
+
+	const terminatorMiddleware = append('MIDDLEWARE.T 0 /user');
+	router.use('/user', terminatorMiddleware);
+	router.get('/user/:id/ban', append('GET.T 0 /user/:id/ban', true));
+	router.use('/user/:id/ban', async (ctx, next) => {
+		t.deepEqual(StagedArray.sort(ctx[TERMINATOR_MIDDLEWARE_KEY]), [terminatorMiddleware]);
+		await next();
+		t.deepEqual(StagedArray.sort(ctx[TERMINATOR_MIDDLEWARE_KEY]), [terminatorMiddleware]);
+	});
+
+	const result = await doSimulation('GET', '/user/23/ban', (ctx) => {
+		t.is(ctx[TERMINATOR_MIDDLEWARE_KEY], undefined);
+	});
+	t.is(result.body, 'MIDDLEWARE.T 0 /user:GET.T 0 /user/23:id/ban');
+
+	t.is(await simulate('GET', '/user/23/ban'), 'MIDDLEWARE.T 0 /user:GET.T 0 /user/23:id/ban');
+});
+
 test.serial('HEAD requests should use GET terminators if no HEAD terminators exist', async (t) => {
 	router.get('/home', append('GET.T 0 /home', true));
 	router.head('/api', append('HEAD.T 0 /api', true));
@@ -275,22 +297,22 @@ test.serial('should maintain the call stack through all middleware', async (t) =
 
 	router.addMiddleware(SpecialMethod.MIDDLEWARE, '/', 0, appendTwice('MIDDLEWARE 0 /'));
 	router.addTerminator(SpecialMethod.MIDDLEWARE, '/', 0, appendTwice('MIDDLEWARE.T 0 /'));
-	router.addMiddleware(SpecialMethod.MIDDLEWARE, '/blog', 0, appendTwice('MIDDLEWARE 0 /blog'));
-	router.addTerminator(SpecialMethod.MIDDLEWARE, '/blog', 0, appendTwice('MIDDLEWARE.T 0 /blog'));
-	router.addMiddleware('GET', '/blog', 0, appendTwice('GET 0 /blog'));
-	router.addTerminator('GET', '/blog', 0, appendTwice('GET.T 0 /blog'));
-	router.addMiddleware(SpecialMethod.ALL, '/blog', 0, appendTwice('ALL 0 /blog'));
-	router.addTerminator(SpecialMethod.ALL, '/blog', 0, appendTwice('ALL.T 0 /blog', true));
+	router.addMiddleware(SpecialMethod.MIDDLEWARE, '/blog/:id/more', 0, appendTwice('MIDDLEWARE 0 /blog/:id/more'));
+	router.addTerminator(SpecialMethod.MIDDLEWARE, '/blog/:id/more', 0, appendTwice('MIDDLEWARE.T 0 /blog/:id/more'));
+	router.addMiddleware('GET', '/blog/:id/more', 0, appendTwice('GET 0 /blog/:id/more'));
+	router.addTerminator('GET', '/blog/:id/more', 0, appendTwice('GET.T 0 /blog/:id/more'));
+	router.addMiddleware(SpecialMethod.ALL, '/blog/:id/more', 0, appendTwice('ALL 0 /blog/:id/more'));
+	router.addTerminator(SpecialMethod.ALL, '/blog/:id/more', 0, appendTwice('ALL.T 0 /blog/:id/more', true));
 
 	const stack = [
 		'MIDDLEWARE 0 /',
-		'MIDDLEWARE 0 /blog',
+		'MIDDLEWARE 0 /blog/:id/more',
 		'MIDDLEWARE.T 0 /',
-		'MIDDLEWARE.T 0 /blog',
-		'GET 0 /blog',
-		'ALL 0 /blog',
-		'GET.T 0 /blog',
-		'ALL.T 0 /blog',
+		'MIDDLEWARE.T 0 /blog/:id/more',
+		'GET 0 /blog/:id/more',
+		'ALL 0 /blog/:id/more',
+		'GET.T 0 /blog/:id/more',
+		'ALL.T 0 /blog/:id/more',
 	];
 
 	const result = await simulate('GET', '/blog/89/more');
