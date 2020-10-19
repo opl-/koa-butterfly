@@ -482,6 +482,42 @@ test.serial('parameters with matchAll and a regex should consume only the matche
 	t.is(await simulate('GET', '/post2/', false), undefined);
 });
 
+test.serial('nested Routers', async (t) => {
+	const nestedRouter = new Router();
+
+	nestedRouter.get('/post', append('child GET.T 0 :apiVersion/post', true));
+
+	router.use('/api', append('MIDDLEWARE.T 0 /api'));
+	router.use('/api/:apiVersion*', nestedRouter);
+	router.get('/api/:apiVersion/user', append('GET.T 0 /api/:apiVersion/user', true));
+
+	t.is(await simulate('GET', '/api/v2/user'), 'MIDDLEWARE.T 0 /api:GET.T 0 /api/v2:apiVersion/user');
+	t.is(await simulate('GET', '/api/v2/post'), 'MIDDLEWARE.T 0 /api:child GET.T 0 v2:apiVersion/post');
+});
+
+test.serial('ctx.remainingUrl should have the appropriate value', async (t) => {
+	t.plan(5);
+
+	router.use('/blog*', (ctx, next) => {
+		t.is(ctx.remainingUrl, '/thing');
+		return next();
+	}, append('MIDDLEWARE 0 /blog*'));
+	router.addMiddleware(SpecialMethod.MIDDLEWARE, '/user/:id', 0, (ctx, next) => {
+		t.is(ctx.remainingUrl, '/rest');
+		return next();
+	});
+
+	await doSimulation('GET', '/blog/thing', (ctx) => {
+		t.is(ctx.remainingUrl, undefined);
+	});
+	await doSimulation('GET', '/user/23/rest', (ctx) => {
+		t.is(ctx.remainingUrl, undefined);
+	});
+	await doSimulation('GET', '/wrong', (ctx) => {
+		t.is(ctx.remainingUrl, undefined);
+	});
+});
+
 test('supports custom context and state types', async (t) => {
 	function expect<T>(arg: T) {
 		void arg;
