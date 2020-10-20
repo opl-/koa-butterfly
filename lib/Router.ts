@@ -199,7 +199,7 @@ export class Router<StateT = DefaultState, ContextT = DefaultContext, RouterCont
 		return currentNode;
 	}
 
-	addMiddleware(method: string, path: string, stage: number, ...middleware: (Middleware<StateT, RouterContextT> | Middlewareable)[]): void {
+	addMiddleware(method: string, path: string, stage: number, ...middleware: (Middleware<StateT, RouterContextT> | Middlewareable)[]): this {
 		const node = this.getNode(path, true);
 
 		node.data.getMethodData(method, true).middleware.addData(stage, ...middleware.map((value) => {
@@ -207,9 +207,11 @@ export class Router<StateT = DefaultState, ContextT = DefaultContext, RouterCont
 
 			return value.middleware();
 		}));
+
+		return this;
 	}
 
-	addTerminator(method: string, path: string, stage: number, ...middleware: (Middleware<StateT, RouterContextT> | Middlewareable)[]): void {
+	addTerminator(method: string, path: string, stage: number, ...middleware: (Middleware<StateT, RouterContextT> | Middlewareable)[]): this {
 		const node = this.getNode(path, true);
 
 		node.data.getMethodData(method, true).terminators.addData(stage, ...middleware.map((value) => {
@@ -217,6 +219,8 @@ export class Router<StateT = DefaultState, ContextT = DefaultContext, RouterCont
 
 			return value.middleware();
 		}));
+
+		return this;
 	}
 
 	middleware(): Middleware<StateT, RouterContextT> {
