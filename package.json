@@ -1,6 +1,6 @@
 {
   "name": "koa-butterfly",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "description": "Yet another Koa router.",
   "private": true,
   "keywords": [
@@ -17,6 +17,9 @@
   },
   "author": "opl",
   "license": "MIT",
+  "engines": {
+    "node": ">= 10.0.0"
+  },
   "dependencies": {
     "koa-compose": "^4.1.0"
   },
