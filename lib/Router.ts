@@ -153,7 +153,7 @@ export class Router<StateT = DefaultState, ContextT = DefaultContext, RouterCont
 	getNode(path: string, createIfNone: true): this['rootNode'];
 	getNode(path: string, createIfNone: false): this['rootNode'] | null;
 	getNode(path: string, createIfNone = false): this['rootNode'] | null {
-		if (path.length < 0 || path[0] !== '/') throw new Error('Paths must start with "/"');
+		if (path[0] !== '/') throw new Error('Paths must start with "/"');
 
 		const segments = parsePath(path);
 		let currentNode: this['rootNode'] | null = this.rootNode;
