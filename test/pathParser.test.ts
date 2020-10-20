@@ -51,11 +51,11 @@ test('should allow parameters following other parameters if they have a regex', 
 });
 
 test('should disallow match all parameters if more path appears after them, unless they have a regex', (t) => {
-	t.throws(() => parsePath('/:param*path'), {message: 'Match all parameter "param" without regex must not have any path remaining after it'});
-	t.throws(() => parsePath('/:param*:another'), {message: 'Match all parameter "param" without regex must not have any path remaining after it'});
-	t.throws(() => parsePath('/:param*/'), {message: 'Match all parameter "param" without regex must not have any path remaining after it'});
+	t.throws(() => parsePath('/:param+path'), {message: 'Match all parameter "param" without regex must not have any path remaining after it'});
+	t.throws(() => parsePath('/:param+:another'), {message: 'Match all parameter "param" without regex must not have any path remaining after it'});
+	t.throws(() => parsePath('/:param+/'), {message: 'Match all parameter "param" without regex must not have any path remaining after it'});
 
-	t.deepEqual(parsePath('/:param([\\w/]{1,5})*/asd'), [{
+	t.deepEqual(parsePath('/:param([\\w/]{1,5})+/asd'), [{
 		type: 'path',
 		path: '/',
 	}, {
@@ -99,7 +99,7 @@ test('should obtain parameter regexes', (t) => {
 		},
 	}]);
 
-	t.deepEqual(parsePath('/:param*'), [{
+	t.deepEqual(parsePath('/:param+'), [{
 		type: 'path',
 		path: '/',
 	}, {
@@ -112,7 +112,7 @@ test('should obtain parameter regexes', (t) => {
 		},
 	}]);
 
-	t.deepEqual(parsePath('/:param(\\w+)*'), [{
+	t.deepEqual(parsePath('/:param(\\w+)+'), [{
 		type: 'path',
 		path: '/',
 	}, {

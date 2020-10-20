@@ -85,7 +85,7 @@ function parseParam(s: ParserState): ParameterInfo {
 		regex = regex.substr(0, regex.length - 1);
 	}
 
-	const matchAll = expect(s, '*');
+	const matchAll = expect(s, '+');
 
 	return {
 		name,
