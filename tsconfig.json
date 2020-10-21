@@ -3,6 +3,7 @@
 		"declaration": true,
 		"downlevelIteration": true,
 		"esModuleInterop": true,
+		"module": "CommonJS",
 		"moduleResolution": "node",
 		"noImplicitReturns": true,
 		"outDir": "./dist/",
