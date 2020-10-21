@@ -200,27 +200,25 @@ export class Router<StateT = DefaultState, ContextT = DefaultContext, RouterCont
 	}
 
 	addMiddleware(method: string, path: string, stage: number, ...middleware: (Middleware<StateT, RouterContextT> | Middlewareable)[]): this {
-		const node = this.getNode(path, true);
-
-		node.data.getMethodData(method, true).middleware.addData(stage, ...middleware.map((value) => {
-			if (typeof value === 'function') return value;
-
-			return value.middleware();
-		}));
+		this.addMiddlewareData('middleware', method, path, stage, ...middleware);
 
 		return this;
 	}
 
 	addTerminator(method: string, path: string, stage: number, ...middleware: (Middleware<StateT, RouterContextT> | Middlewareable)[]): this {
+		this.addMiddlewareData('terminators', method, path, stage, ...middleware);
+
+		return this;
+	}
+
+	private addMiddlewareData(type: 'middleware' | 'terminators', method: string, path: string, stage: number, ...middleware: (Middleware<StateT, RouterContextT> | Middlewareable)[]) {
 		const node = this.getNode(path, true);
 
-		node.data.getMethodData(method, true).terminators.addData(stage, ...middleware.map((value) => {
+		node.data.getMethodData(method, true)[type].addData(stage, ...middleware.map((value) => {
 			if (typeof value === 'function') return value;
 
 			return value.middleware();
 		}));
-
-		return this;
 	}
 
 	middleware(): Middleware<StateT, RouterContextT> {
