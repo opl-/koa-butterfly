@@ -390,7 +390,10 @@ export class Router<StateT = DefaultState, ContextT = DefaultContext, RouterCont
 		return this;
 	}
 
-	private addMiddlewareHelper(method: string, path: string, stage: number | (Middleware<StateT, RouterContextT> | Middlewareable), ...middleware: (Middleware<StateT, RouterContextT> | Middlewareable)[]): this {
+	register(method: string, path: string, ...middleware: (Middleware<StateT, RouterContextT> | Middlewareable)[]): this;
+	register(method: string, path: string, stage: number, ...middleware: (Middleware<StateT, RouterContextT> | Middlewareable)[]): this;
+	register(method: string, path: string, stage: number | (Middleware<StateT, RouterContextT> | Middlewareable), ...middleware: (Middleware<StateT, RouterContextT> | Middlewareable)[]): this;
+	register(method: string, path: string, stage: number | (Middleware<StateT, RouterContextT> | Middlewareable), ...middleware: (Middleware<StateT, RouterContextT> | Middlewareable)[]): this {
 		const decidedStage = typeof stage === 'number' ? stage : 0;
 		const combinedMiddleware = typeof stage === 'number' ? middleware : [stage].concat(middleware);
 
@@ -405,66 +408,66 @@ export class Router<StateT = DefaultState, ContextT = DefaultContext, RouterCont
 	all(path: string, ...middleware: (Middleware<StateT, RouterContextT> | Middlewareable)[]): this;
 	all(path: string, stage: number, ...middleware: (Middleware<StateT, RouterContextT> | Middlewareable)[]): this;
 	all(path: string, stage: number | (Middleware<StateT, RouterContextT> | Middlewareable), ...middleware: (Middleware<StateT, RouterContextT> | Middlewareable)[]): this {
-		return this.addMiddlewareHelper(SpecialMethod.ALL, path, stage, ...middleware);
+		return this.register(SpecialMethod.ALL, path, stage, ...middleware);
 	}
 
 	connect(path: string, ...middleware: (Middleware<StateT, RouterContextT> | Middlewareable)[]): this;
 	connect(path: string, stage: number, ...middleware: (Middleware<StateT, RouterContextT> | Middlewareable)[]): this;
 	connect(path: string, stage: number | (Middleware<StateT, RouterContextT> | Middlewareable), ...middleware: (Middleware<StateT, RouterContextT> | Middlewareable)[]): this {
-		return this.addMiddlewareHelper('CONNECT', path, stage, ...middleware);
+		return this.register('CONNECT', path, stage, ...middleware);
 	}
 
 	delete(path: string, ...middleware: (Middleware<StateT, RouterContextT> | Middlewareable)[]): this;
 	delete(path: string, stage: number, ...middleware: (Middleware<StateT, RouterContextT> | Middlewareable)[]): this;
 	delete(path: string, stage: number | (Middleware<StateT, RouterContextT> | Middlewareable), ...middleware: (Middleware<StateT, RouterContextT> | Middlewareable)[]): this {
-		return this.addMiddlewareHelper('DELETE', path, stage, ...middleware);
+		return this.register('DELETE', path, stage, ...middleware);
 	}
 
 	del(path: string, ...middleware: (Middleware<StateT, RouterContextT> | Middlewareable)[]): this;
 	del(path: string, stage: number, ...middleware: (Middleware<StateT, RouterContextT> | Middlewareable)[]): this;
 	del(path: string, stage: number | (Middleware<StateT, RouterContextT> | Middlewareable), ...middleware: (Middleware<StateT, RouterContextT> | Middlewareable)[]): this {
-		return this.addMiddlewareHelper('DELETE', path, stage, ...middleware);
+		return this.register('DELETE', path, stage, ...middleware);
 	}
 
 	get(path: string, ...middleware: (Middleware<StateT, RouterContextT> | Middlewareable)[]): this;
 	get(path: string, stage: number, ...middleware: (Middleware<StateT, RouterContextT> | Middlewareable)[]): this;
 	get(path: string, stage: number | (Middleware<StateT, RouterContextT> | Middlewareable), ...middleware: (Middleware<StateT, RouterContextT> | Middlewareable)[]): this {
-		return this.addMiddlewareHelper('GET', path, stage, ...middleware);
+		return this.register('GET', path, stage, ...middleware);
 	}
 
 	head(path: string, ...middleware: (Middleware<StateT, RouterContextT> | Middlewareable)[]): this;
 	head(path: string, stage: number, ...middleware: (Middleware<StateT, RouterContextT> | Middlewareable)[]): this;
 	head(path: string, stage: number | (Middleware<StateT, RouterContextT> | Middlewareable), ...middleware: (Middleware<StateT, RouterContextT> | Middlewareable)[]): this {
-		return this.addMiddlewareHelper('HEAD', path, stage, ...middleware);
+		return this.register('HEAD', path, stage, ...middleware);
 	}
 
 	options(path: string, ...middleware: (Middleware<StateT, RouterContextT> | Middlewareable)[]): this;
 	options(path: string, stage: number, ...middleware: (Middleware<StateT, RouterContextT> | Middlewareable)[]): this;
 	options(path: string, stage: number | (Middleware<StateT, RouterContextT> | Middlewareable), ...middleware: (Middleware<StateT, RouterContextT> | Middlewareable)[]): this {
-		return this.addMiddlewareHelper('OPTIONS', path, stage, ...middleware);
+		return this.register('OPTIONS', path, stage, ...middleware);
 	}
 
 	patch(path: string, ...middleware: (Middleware<StateT, RouterContextT> | Middlewareable)[]): this;
 	patch(path: string, stage: number, ...middleware: (Middleware<StateT, RouterContextT> | Middlewareable)[]): this;
 	patch(path: string, stage: number | (Middleware<StateT, RouterContextT> | Middlewareable), ...middleware: (Middleware<StateT, RouterContextT> | Middlewareable)[]): this {
-		return this.addMiddlewareHelper('PATCH', path, stage, ...middleware);
+		return this.register('PATCH', path, stage, ...middleware);
 	}
 
 	post(path: string, ...middleware: (Middleware<StateT, RouterContextT> | Middlewareable)[]): this;
 	post(path: string, stage: number, ...middleware: (Middleware<StateT, RouterContextT> | Middlewareable)[]): this;
 	post(path: string, stage: number | (Middleware<StateT, RouterContextT> | Middlewareable), ...middleware: (Middleware<StateT, RouterContextT> | Middlewareable)[]): this {
-		return this.addMiddlewareHelper('POST', path, stage, ...middleware);
+		return this.register('POST', path, stage, ...middleware);
 	}
 
 	put(path: string, ...middleware: (Middleware<StateT, RouterContextT> | Middlewareable)[]): this;
 	put(path: string, stage: number, ...middleware: (Middleware<StateT, RouterContextT> | Middlewareable)[]): this;
 	put(path: string, stage: number | (Middleware<StateT, RouterContextT> | Middlewareable), ...middleware: (Middleware<StateT, RouterContextT> | Middlewareable)[]): this {
-		return this.addMiddlewareHelper('PUT', path, stage, ...middleware);
+		return this.register('PUT', path, stage, ...middleware);
 	}
 
 	trace(path: string, ...middleware: (Middleware<StateT, RouterContextT> | Middlewareable)[]): this;
 	trace(path: string, stage: number, ...middleware: (Middleware<StateT, RouterContextT> | Middlewareable)[]): this;
 	trace(path: string, stage: number | (Middleware<StateT, RouterContextT> | Middlewareable), ...middleware: (Middleware<StateT, RouterContextT> | Middlewareable)[]): this {
-		return this.addMiddlewareHelper('TRACE', path, stage, ...middleware);
+		return this.register('TRACE', path, stage, ...middleware);
 	}
 }
