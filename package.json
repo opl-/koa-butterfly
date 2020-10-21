@@ -1,8 +1,15 @@
 {
   "name": "koa-butterfly",
   "version": "0.1.0",
-  "description": "Yet another Koa router.",
-  "private": true,
+  "description": "A feature packed Koa router.",
+  "homepage": "https://github.com/opl-/koa-butterfly#readme",
+  "bugs": {
+    "url" : "https://github.com/opl-/koa-butterfly/issues"
+  },
+  "repository": {
+    "type" : "git",
+    "url" : "https://github.com/opl-/koa-butterfly.git"
+  },
   "keywords": [
     "koa",
     "router",
@@ -11,6 +18,11 @@
     "koa-router"
   ],
   "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "lib/**/*",
+    "dist/**/*"
+  ],
   "scripts": {
     "build": "tsc",
     "test": "nyc --report=lcov ava"
@@ -21,11 +33,11 @@
     "node": ">= 10.0.0"
   },
   "dependencies": {
+    "@types/koa": "^2.11.4",
+    "@types/koa-compose": "^3.2.5",
     "koa-compose": "^4.1.0"
   },
   "devDependencies": {
-    "@types/koa": "^2.11.4",
-    "@types/koa-compose": "^3.2.5",
     "ava": "^3.12.1",
     "koa": "^2.13.0",
     "nyc": "^15.1.0",
