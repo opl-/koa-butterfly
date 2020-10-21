@@ -234,6 +234,17 @@ test.serial('use(\'/\') (without a wildcard) should attach all middleware as ter
 	t.is(await simulate('GET', '/', false), undefined);
 });
 
+test.serial('falsy values passed in as middleware should be ignored', async (t) => {
+	router.use('/', null);
+	router.get('/test', append('GET 0 /test'), null);
+	router.get('/blog', null, append('GET.T 0 /blog', true));
+
+	// Shouldn't match as there's no terminator middleware on that path
+	t.is(await simulate('GET', '/test', false), undefined);
+	// Should match as the `null` middleware should've been ignored and the terminator registered
+	t.is(await simulate('GET', '/blog'), 'GET.T 0 /blog');
+});
+
 // TODO: test that terminator middleware is still passed to nested routers
 test.serial('terminator middleware should not leak out of the Router', async (t) => {
 	t.plan(6);

@@ -87,7 +87,7 @@ export interface Middlewareable {
 	middleware(): Middleware<any, any>;
 }
 
-export type MiddlewareLike<StateT = DefaultState, ContextT = DefaultContext> = Middleware<StateT, ContextT> | Middlewareable;
+export type MiddlewareLike<StateT = DefaultState, ContextT = DefaultContext> = Middleware<StateT, ContextT> | Middlewareable | null | undefined | false;
 
 /**
  * Runs any middleware provided by the given generator.
@@ -214,9 +214,15 @@ export class Router<StateT = DefaultState, ContextT = DefaultContext, RouterCont
 	}
 
 	private addMiddlewareData(type: 'middleware' | 'terminators', method: string, path: string, stage: number, ...middleware: MiddlewareLike<StateT, RouterContextT>[]) {
+		type ArrayWithoutFalsyChildren<A> = A extends Array<infer T> ? Array<(T extends null | undefined | false ? never : T)> : never;
+		const filteredMiddleware = middleware.filter((v) => v) as ArrayWithoutFalsyChildren<typeof middleware>;
+
+		// No actual middleware candidates were passed in, return without creating any new Nodes
+		if (filteredMiddleware.length === 0) return;
+
 		const node = this.getNode(path, true);
 
-		node.data.getMethodData(method, true)[type].addData(stage, ...middleware.map((value) => {
+		node.data.getMethodData(method, true)[type].addData(stage, ...filteredMiddleware.map((value) => {
 			if (typeof value === 'function') return value;
 
 			return value.middleware();
