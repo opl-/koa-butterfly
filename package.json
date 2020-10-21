@@ -25,7 +25,8 @@
   ],
   "scripts": {
     "build": "tsc",
-    "test": "nyc --report=lcov ava"
+    "test": "nyc --report=lcov ava",
+    "prepublishOnly": "npm test && npm run build"
   },
   "author": "opl",
   "license": "MIT",
