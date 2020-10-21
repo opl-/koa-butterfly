@@ -9,7 +9,7 @@
 		"rootDir": "./lib/",
 		"sourceMap": true,
 		"strict": true,
-		"target": "ES6",
+		"target": "ES2018",
 	},
 	"include": [
 		"./lib/",
