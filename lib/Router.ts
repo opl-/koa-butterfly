@@ -339,8 +339,8 @@ export class Router<StateT = DefaultState, ContextT = DefaultContext, RouterCont
 				}
 			}
 
-			// Handle parameters. Ignores path boundary checks to allow putting parameters in places other than right after a slash.
-			if (currentNode.data.lateParams.length > 0) {
+			// Handle parameters only if no static routes match. Ignores path boundary checks to allow putting parameters in places other than right after a slash.
+			if (currentNode.data.lateParams.length > 0 && result.next.done) {
 				const slashIndex = remainingPath.indexOf('/');
 				const segmentValue = slashIndex === -1 ? remainingPath : remainingPath.substr(0, slashIndex);
 

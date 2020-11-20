@@ -374,6 +374,23 @@ test.serial('should handle complex combinations of parameters', async (t) => {
 	t.is(await simulate('GET', '/user/xx/ban', false), undefined);
 });
 
+test.serial('parameters should have lower priority than static routes', async (t) => {
+	const childRouter = new Router();
+
+	router.use('/_*', childRouter);
+	router.use('/*', -10, append('USE -10 /*'));
+	router.get('/:path(.*)+', 10, append('GET 10 /:path', true));
+
+	childRouter.get('/res/:path+', append('GET 0 /res/:path', true));
+	childRouter.get('/api/user', append('GET 0 /api/user', true));
+
+	t.is(await simulate('GET', '/_/res/app.js'), 'USE -10 /*:GET 0 /res/app.js:path');
+	t.is(await simulate('GET', '/_/res/style/app.css'), 'USE -10 /*:GET 0 /res/style/app.css:path');
+	t.is(await simulate('GET', '/_/api/user'), 'USE -10 /*:GET 0 /api/user');
+	t.is(await simulate('GET', '/'), 'USE -10 /*:GET 10 /:path');
+	t.is(await simulate('GET', '/blog'), 'USE -10 /*:GET 10 /blog:path');
+});
+
 test.serial('should handle trailing slashes in parameters with strictSlashes disabled', async (t) => {
 	router.get('/post/:name', append('GET.T 0 /post/:name', true));
 	router.get('/user/:id', append('GET.T 0 /user/:id', true));
