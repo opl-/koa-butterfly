@@ -379,16 +379,16 @@ test.serial('parameters should have lower priority than static routes', async (t
 
 	router.use('/_*', childRouter);
 	router.use('/*', -10, append('USE -10 /*'));
-	router.get('/:path(.*)+', 10, append('GET 10 /:path', true));
+	router.get('/:path(.*)+', 10, append('GET.T 10 /:path', true));
 
-	childRouter.get('/res/:path+', append('GET 0 /res/:path', true));
-	childRouter.get('/api/user', append('GET 0 /api/user', true));
+	childRouter.get('/res/:path+', append('GET.T 0 /res/:path', true));
+	childRouter.get('/api/user', append('GET.T 0 /api/user', true));
 
-	t.is(await simulate('GET', '/_/res/app.js'), 'USE -10 /*:GET 0 /res/app.js:path');
-	t.is(await simulate('GET', '/_/res/style/app.css'), 'USE -10 /*:GET 0 /res/style/app.css:path');
-	t.is(await simulate('GET', '/_/api/user'), 'USE -10 /*:GET 0 /api/user');
-	t.is(await simulate('GET', '/'), 'USE -10 /*:GET 10 /:path');
-	t.is(await simulate('GET', '/blog'), 'USE -10 /*:GET 10 /blog:path');
+	t.is(await simulate('GET', '/_/res/app.js'), 'USE -10 /*:GET.T 0 /res/app.js:path');
+	t.is(await simulate('GET', '/_/res/style/app.css'), 'USE -10 /*:GET.T 0 /res/style/app.css:path');
+	t.is(await simulate('GET', '/_/api/user'), 'USE -10 /*:GET.T 0 /api/user');
+	t.is(await simulate('GET', '/'), 'USE -10 /*:GET.T 10 /:path');
+	t.is(await simulate('GET', '/blog'), 'USE -10 /*:GET.T 10 /blog:path');
 });
 
 test.serial('should handle trailing slashes in parameters with strictSlashes disabled', async (t) => {
