@@ -1,6 +1,6 @@
 {
   "name": "koa-butterfly",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "A feature packed Koa router.",
   "homepage": "https://github.com/opl-/koa-butterfly#readme",
   "bugs": {
