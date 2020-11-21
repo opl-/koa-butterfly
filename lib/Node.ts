@@ -154,7 +154,7 @@ export class Node<D> {
 		output.push(branchNode);
 
 		// Modify the children of the last found node
-		node.children.splice(this.children.indexOf(bestNode), 1, branchNode);
+		node.children.splice(node.children.indexOf(bestNode), 1, branchNode);
 
 		// Adjust the old node
 		bestNode.segment = bestNode.segment.substr(bestCommonLength);

@@ -61,10 +61,12 @@ test('should work when branching with more segments left', (t) => {
 	const root = new Node(() => null);
 
 	const ab = root.find('/ab', true);
+	const b = root.find('/b', true);
 	const slash = root.find('/', true);
 	const ac = root.find('/ac', true);
 
 	t.is(root.find('/ab'), ab);
+	t.is(root.find('/b'), b);
 	t.is(root.find('/'), slash);
 	t.is(root.find('/ac'), ac);
 });
