@@ -321,8 +321,10 @@ export class Router<StateT = DefaultState, ContextT = DefaultContext, RouterCont
 						// And finally middleware for all methods on this path
 						if (allMethodData && allMethodData.middleware.length > 0) matchingMiddlewareSAs.push(allMethodData.middleware);
 
-						// Sort all the middleware together and run it
-						yield StagedArray.sort(matchingMiddlewareSAs);
+						if (matchingMiddlewareSAs.length > 0) {
+							// Sort all the middleware together and run it
+							yield StagedArray.sort(matchingMiddlewareSAs);
+						}
 
 						// Run the appropriate terminator middleware at the end
 						if (methodData) yield methodData.terminators.orderedData;
