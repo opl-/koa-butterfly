@@ -59,16 +59,19 @@ export class RouterNodeData<StateT, ContextT> {
 	}
 
 	toString(): string {
-		return `methods (${this.methodData.size}): ${[...this.methodData.entries()].map(([method, data]) => [
-			'\x1b[1m', // bold
-			method,
-			'\x1b[22m {', // normal intensity
-			[
-				data.middleware.length === 0 ? null : `middleware=${data.middleware.length}`,
-				data.terminators.length === 0 ? null : `terminators=${data.terminators.length}`,
-			].filter((v) => v).join(', '),
-			'}'
-		].join('')).join(', ')}`;
+		return [
+			this.methodData.size === 0 ? null : `methods (${this.methodData.size}): ${[...this.methodData.entries()].map(([method, data]) => [
+				'\x1b[1m', // bold
+				method,
+				'\x1b[22m {', // normal intensity
+				[
+					data.middleware.length === 0 ? null : `middleware=${data.middleware.length}`,
+					data.terminators.length === 0 ? null : `terminators=${data.terminators.length}`,
+				].filter((v) => v).join(', '),
+				'}'
+			].join('')).join(', ')}`,
+			this.lateParams.length === 0 ? null : `lateParams (${this.lateParams.length}): ${this.lateParams.orderedData.map((param) => param.name).join(', ')}`
+		].filter((v) => v).join('; ');
 	}
 }
 
