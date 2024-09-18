@@ -1,10 +1,13 @@
 import test from 'ava';
-import {Context, Middleware, Next} from 'koa';
+import {ParameterizedContext, Middleware as KoaMiddleware, Next} from 'koa';
 
-import {Router, SpecialMethod, TERMINATOR_MIDDLEWARE_KEY} from '../lib/Router';
+import {Router, RouterContext, SpecialMethod, TERMINATOR_MIDDLEWARE_KEY} from '../lib/Router';
 import {StagedArray} from '../lib/StagedArray';
 
 let router = new Router();
+
+type Context = ParameterizedContext<{}, RouterContext<{}, {params: Record<string, any>;}>, string | undefined>;
+type Middleware = KoaMiddleware<{}, Context>;
 
 type MethodsWithHelpers = 'CONNECT' | 'DELETE' | 'GET' | 'HEAD' | 'OPTIONS' | 'PATCH' | 'POST' | 'PUT' | 'TRACE';
 
@@ -23,7 +26,7 @@ async function doSimulation(method: MethodsWithHelpers, path: string, nextMiddle
 	return context as any;
 }
 
-async function simulate(method: MethodsWithHelpers, path: string, shouldMatch = true, modifyOutput?: (context: any) => any): Promise<string | {message: string; body?: string;} | undefined> {
+async function simulate(method: MethodsWithHelpers, path: string, shouldMatch = true, modifyOutput?: (context: Context) => any): Promise<string | {message: string; body?: string;} | undefined> {
 	let matched = true;
 
 	const context = await doSimulation(method, path, async () => {
