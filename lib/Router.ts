@@ -4,8 +4,10 @@ import compose from 'koa-compose';
 import {Node} from './Node';
 import {parsePath} from "./pathParser";
 import {StagedArray} from './StagedArray';
+import {Tracer} from './Tracer';
 
 export const TERMINATOR_MIDDLEWARE_KEY = 'koa-butterfly/terminator-middleware';
+export const TRACER_KEY = 'koa-butterfly/tracer';
 
 /**
  * Contains keys used to internally store special types of middleware.
@@ -78,12 +80,16 @@ export class RouterNodeData<StateT, ContextT> {
 export interface RouterOptions {
 	/** If true, requests ending with `/` will match routes not ending in `/`. Routes ending with `/` will still require the request path to end in a slash. */
 	strictSlashes?: boolean;
+
+	/** If true, requests will log the path matching decisions made. */
+	tracing?: boolean;
 }
 
 export type RouterContext<StateT, ContextT> = {
 	params: Record<string, string>;
 	remainingUrl: string;
 	[TERMINATOR_MIDDLEWARE_KEY]: StagedArray<Middleware<StateT, ContextT>>[];
+	[TRACER_KEY]?: Tracer;
 } & ContextT;
 
 export interface Middlewareable {
@@ -151,8 +157,11 @@ export class Router<StateT = DefaultState, ContextT = DefaultContext, RouterCont
 
 	private strictSlashes: boolean;
 
+	tracing: boolean;
+
 	constructor(opts: RouterOptions = {}) {
 		this.strictSlashes = opts.strictSlashes ?? false;
+		this.tracing = opts.tracing ?? false;
 	}
 
 	getNode(path: string, createIfNone: true): this['rootNode'];
@@ -237,6 +246,8 @@ export class Router<StateT = DefaultState, ContextT = DefaultContext, RouterCont
 	}
 
 	async middlewareHandler(ctx: ParameterizedContext<StateT, RouterContextT>, next: Next): Promise<void> {
+		if (this.tracing && !ctx[TRACER_KEY]) ctx[TRACER_KEY] = new Tracer();
+
 		return this.handleNodePath(this.rootNode, ctx.remainingUrl ?? ctx.path, ctx, next);
 	}
 
@@ -259,6 +270,9 @@ export class Router<StateT = DefaultState, ContextT = DefaultContext, RouterCont
 	}
 
 	async *middlewareGenerator(node: this['rootNode'], ctx: ParameterizedContext<StateT, RouterContextT>, next: Next) {
+		const tracer = ctx[TRACER_KEY];
+		tracer?.logPath(ctx.remainingUrl, 'New root node');
+
 		let nodeIterator = node.nodeIterator(ctx.remainingUrl);
 
 		let result: IteratorResultSequence<typeof nodeIterator> = {
@@ -280,6 +294,17 @@ export class Router<StateT = DefaultState, ContextT = DefaultContext, RouterCont
 			const remainingPath = result.current.value.remainingPath;
 			ctx.remainingUrl = remainingPath;
 
+			if (tracer && currentNode.segment !== '<root>') {
+				tracer.logPath(currentNode.segment);
+				tracer.addIndent(currentNode.segment.length);
+
+				for (const child of currentNode.children) {
+					if (!result.next.done && child.segment === result.next.value.node.segment) continue;
+
+					tracer.logPath(child.segment, 'Skipped', true);
+				}
+			}
+
 			// Determine if this node is on a path segment boundary
 			if (result.next.done || (currentNode.segment.endsWith('/') || result.next.value.node.segment.startsWith('/'))) {
 				// The node is final if there are no nodes to follow and if no path remains (or if strict slashes are disabled, if only a slash remains)
@@ -299,6 +324,8 @@ export class Router<StateT = DefaultState, ContextT = DefaultContext, RouterCont
 
 					// If the method has no terminators, fall through and handle this node like any other middleware node
 					if (hasTerminators) {
+						tracer?.logEvent('Has terminators');
+
 						// Stores StagedArrays containing middleware to run. The order matters, as it determines middleware order within a stage.
 						const matchingMiddlewareSAs: StagedArray<Middleware<StateT, RouterContextT>>[] = [];
 
@@ -323,12 +350,19 @@ export class Router<StateT = DefaultState, ContextT = DefaultContext, RouterCont
 
 						if (matchingMiddlewareSAs.length > 0) {
 							// Sort all the middleware together and run it
+							tracer?.logEvent(`Running ${matchingMiddlewareSAs.length} middleware`);
 							yield StagedArray.sort(matchingMiddlewareSAs);
 						}
 
 						// Run the appropriate terminator middleware at the end
-						if (methodData) yield methodData.terminators.orderedData;
-						if (allMethodData) yield allMethodData.terminators.orderedData;
+						if (methodData) {
+							tracer?.logEvent(`Running ${methodData.terminators.orderedData.length} terminators from ${ctx.method} method`);
+							yield methodData.terminators.orderedData;
+						}
+						if (allMethodData) {
+							tracer?.logEvent(`Running ${allMethodData.terminators.orderedData} terminators from ALL method`);
+							yield allMethodData.terminators.orderedData;
+						}
 
 						continue;
 					}
@@ -338,9 +372,15 @@ export class Router<StateT = DefaultState, ContextT = DefaultContext, RouterCont
 				const middlewareData = currentNode.data.getMethodData(SpecialMethod.MIDDLEWARE);
 
 				if (middlewareData) {
-					if (middlewareData.terminators.length > 0) terminatorMiddleware.push(middlewareData.terminators);
+					if (middlewareData.terminators.length > 0) {
+						tracer?.logEvent(`Running ${middlewareData.terminators.length} terminators from MIDDLEWARE method`);
+						terminatorMiddleware.push(middlewareData.terminators);
+					}
 
-					if (middlewareData.middleware.length > 0) yield middlewareData.middleware.orderedData;
+					if (middlewareData.middleware.length > 0) {
+						tracer?.logEvent(`Running ${middlewareData.middleware.length} middleware from MIDDLEWARE method`);
+						yield middlewareData.middleware.orderedData;
+					}
 				}
 			}
 
@@ -350,6 +390,8 @@ export class Router<StateT = DefaultState, ContextT = DefaultContext, RouterCont
 				const segmentValue = slashIndex === -1 ? remainingPath : remainingPath.substr(0, slashIndex);
 
 				for (const param of currentNode.data.lateParams.orderedData) {
+					tracer?.logPath(`:${param.name}`, 'Parameter');
+
 					let paramValue = param.matchAll ? remainingPath : segmentValue;
 
 					// Empty parameters are only allowed if the regex matches them - continue if it doesn't
@@ -367,6 +409,9 @@ export class Router<StateT = DefaultState, ContextT = DefaultContext, RouterCont
 
 					ctx.params ??= {};
 
+					tracer?.logPath(paramValue, 'Matched value');
+					tracer?.addIndent(paramValue.length);
+
 					await middlewareValueWrapper(
 						ctx.params[param.name],
 						paramValue,
@@ -377,6 +422,8 @@ export class Router<StateT = DefaultState, ContextT = DefaultContext, RouterCont
 						next,
 						(nextWrapper) => this.handleNodePath(param.rootNode, remainingPath.substr((paramValue as string).length), ctx, nextWrapper),
 					);
+
+					tracer?.addIndent(-paramValue.length);
 
 					// We matched the param - don't try anything else
 					return;
